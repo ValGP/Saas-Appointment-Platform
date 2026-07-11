@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: appointment-management-api
+  profiles:
+    default: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-me-change-me-change-me-change-me}
+      expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+  admin:
+    email: ${ADMIN_EMAIL:admin@turnos.local}
+    password: ${ADMIN_PASSWORD:admin1234}
+    full-name: ${ADMIN_FULL_NAME:Admin}
+    phone: ${ADMIN_PHONE:}
+  demo-data:
+    enabled: ${DEMO_DATA_ENABLED:false}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}

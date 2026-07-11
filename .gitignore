@@ -1,0 +1,25 @@
+# IDE / Editor configurations
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.DS_Store
+
+# Frontend build & dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/*.log
+
+# Backend build & dependencies
+backend/Appointment-Manager-API/target/
+backend/Appointment-Manager-API/*.log
+backend/Appointment-Manager-API/.idea/
+
+# General logs
+*.log

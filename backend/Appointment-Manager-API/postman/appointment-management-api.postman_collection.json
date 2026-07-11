@@ -1,0 +1,878 @@
+{
+  "info": {
+    "name": "Appointment Management API - MVP Flow",
+    "_postman_id": "e7cc823e-2d49-4aa1-891e-appointment-api-flow",
+    "description": "Automated Postman collection for authentication, catalogs, appointments, availability, and appointment history queries.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@turnos.local"
+    },
+    {
+      "key": "adminPassword",
+      "value": "admin1234"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Login admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('admin login returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('admin token exists', () => pm.expect(json.token).to.be.a('string').and.not.empty);",
+              "pm.test('admin role is ADMIN', () => pm.expect(json.role).to.eql('ADMIN'));",
+              "pm.collectionVariables.set('adminToken', json.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      }
+    },
+    {
+      "name": "02 - Register client A",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const runId = pm.collectionVariables.get('runId') || Date.now().toString();",
+              "pm.collectionVariables.set('runId', runId);",
+              "pm.collectionVariables.set('clientAEmail', `client.a.${runId}@email.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client A registration returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.test('client A role is CLIENT', () => pm.expect(json.role).to.eql('CLIENT'));",
+              "pm.collectionVariables.set('clientAToken', json.token);",
+              "pm.collectionVariables.set('clientAId', json.userId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Client A\",\n  \"email\": \"{{clientAEmail}}\",\n  \"password\": \"password123\",\n  \"phone\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 - Register client B",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const runId = pm.collectionVariables.get('runId') || Date.now().toString();",
+              "pm.collectionVariables.set('runId', runId);",
+              "pm.collectionVariables.set('clientBEmail', `client.b.${runId}@email.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client B registration returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('clientBToken', json.token);",
+              "pm.collectionVariables.set('clientBId', json.userId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Client B\",\n  \"email\": \"{{clientBEmail}}\",\n  \"password\": \"password123\",\n  \"phone\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        }
+      }
+    },
+    {
+      "name": "04 - Create service",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('service creation returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('serviceId', json.id);",
+              "pm.test('service is active', () => pm.expect(json.active).to.eql(true));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Haircut {{runId}}\",\n  \"categoryId\": 3,\n  \"description\": \"Basic haircut\",\n  \"durationMinutes\": 30,\n  \"price\": 1000.00\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/services",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "services"
+          ]
+        }
+      }
+    },
+    {
+      "name": "05 - Create professional",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('professionalEmail', `professional.${pm.collectionVariables.get('runId')}@email.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('professional creation returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('professionalId', json.id);",
+              "pm.test('professional is active', () => pm.expect(json.active).to.eql(true));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Professional Demo\",\n  \"email\": \"{{professionalEmail}}\",\n  \"phone\": \"111222333\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/professionals",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "professionals"
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 - Create business hours",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('business hours creation returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('businessHoursId', json.id);",
+              "pm.test('business hours are active', () => pm.expect(json.active).to.eql(true));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"professionalId\": {{professionalId}},\n  \"dayOfWeek\": \"MONDAY\",\n  \"startTime\": \"09:00:00\",\n  \"endTime\": \"17:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/business-hours",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "business-hours"
+          ]
+        }
+      }
+    },
+    {
+      "name": "07 - Check initial availability",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('availability returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('availability has slots', () => pm.expect(json.length).to.be.above(0));",
+              "pm.test('first slot starts at 09:00', () => pm.expect(json[0].startDateTime).to.eql('2027-05-24T09:00:00'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{clientAToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/availability?professionalId={{professionalId}}&serviceId={{serviceId}}&date=2027-05-24",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "availability"
+          ],
+          "query": [
+            {
+              "key": "professionalId",
+              "value": "{{professionalId}}"
+            },
+            {
+              "key": "serviceId",
+              "value": "{{serviceId}}"
+            },
+            {
+              "key": "date",
+              "value": "2027-05-24"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "08 - Client creates pending appointment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client appointment creation returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('pendingAppointmentId', json.id);",
+              "pm.test('client appointment is PENDING', () => pm.expect(json.status).to.eql('PENDING'));",
+              "pm.test('createdByRole is CLIENT', () => pm.expect(json.createdByRole).to.eql('CLIENT'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{clientAToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"professionalId\": {{professionalId}},\n  \"serviceId\": {{serviceId}},\n  \"startDateTime\": \"2027-05-24T10:00:00\",\n  \"notes\": \"First appointment\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "09 - Admin creates confirmed appointment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('admin appointment creation returns 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('confirmedAppointmentId', json.id);",
+              "pm.test('admin appointment is CONFIRMED', () => pm.expect(json.status).to.eql('CONFIRMED'));",
+              "pm.test('createdByRole is ADMIN', () => pm.expect(json.createdByRole).to.eql('ADMIN'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clientId\": {{clientBId}},\n  \"professionalId\": {{professionalId}},\n  \"serviceId\": {{serviceId}},\n  \"startDateTime\": \"2027-05-24T11:00:00\",\n  \"notes\": \"Admin created appointment\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10 - Admin lists appointment history",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('admin history returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('paginated response has content', () => pm.expect(json.content).to.be.an('array'));",
+              "pm.test('admin sees at least two appointments for professional', () => pm.expect(json.totalElements).to.be.at.least(2));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments?professionalId={{professionalId}}&page=0&size=20&sort=startDateTime,asc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "professionalId",
+              "value": "{{professionalId}}"
+            },
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "20"
+            },
+            {
+              "key": "sort",
+              "value": "startDateTime,asc"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "11 - Filter by client",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client filter returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('only client A appointments returned', () => json.content.forEach(a => pm.expect(a.clientId).to.eql(Number(pm.collectionVariables.get('clientAId')))));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments?clientId={{clientAId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "clientId",
+              "value": "{{clientAId}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "12 - Filter by status PENDING",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status filter returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('all returned appointments are PENDING', () => json.content.forEach(a => pm.expect(a.status).to.eql('PENDING')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments?professionalId={{professionalId}}&status=PENDING",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "professionalId",
+              "value": "{{professionalId}}"
+            },
+            {
+              "key": "status",
+              "value": "PENDING"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "13 - Filter by date range",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('date range filter returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('date range includes appointments', () => pm.expect(json.totalElements).to.be.at.least(2));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments?from=2027-05-24T00:00:00&to=2027-05-24T23:59:59",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2027-05-24T00:00:00"
+            },
+            {
+              "key": "to",
+              "value": "2027-05-24T23:59:59"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "14 - Pagination and descending sort",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('pagination returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('page size is 1', () => pm.expect(json.content.length).to.eql(1));",
+              "pm.test('reported size is 1', () => pm.expect(json.size).to.eql(1));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments?professionalId={{professionalId}}&page=0&size=1&sort=startDateTime,desc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "professionalId",
+              "value": "{{professionalId}}"
+            },
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "1"
+            },
+            {
+              "key": "sort",
+              "value": "startDateTime,desc"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "15 - Client only sees own appointments",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client history returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('client A only sees own appointments', () => json.content.forEach(a => pm.expect(a.clientId).to.eql(Number(pm.collectionVariables.get('clientAId')))));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{clientAToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "16 - Client cannot force another clientId",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client forced filter returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('server still returns only client A appointments', () => json.content.forEach(a => pm.expect(a.clientId).to.eql(Number(pm.collectionVariables.get('clientAId')))));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{clientAToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments?clientId={{clientBId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "clientId",
+              "value": "{{clientBId}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "17 - Client cannot create admin catalog",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client catalog write is forbidden', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{clientAToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Forbidden Service\",\n  \"categoryId\": 3,\n  \"description\": \"Should not be created\",\n  \"durationMinutes\": 30,\n  \"price\": 1000.00\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/services",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "services"
+          ]
+        }
+      }
+    },
+    {
+      "name": "18 - Confirm pending appointment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('confirm returns 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('appointment is confirmed', () => pm.expect(json.status).to.eql('CONFIRMED'));",
+              "pm.test('confirmedAt exists', () => pm.expect(json.confirmedAt).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments/{{pendingAppointmentId}}/confirm",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments",
+            "{{pendingAppointmentId}}",
+            "confirm"
+          ]
+        }
+      }
+    },
+    {
+      "name": "19 - Reject invalid transition after confirmation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('invalid transition returns conflict', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments/{{pendingAppointmentId}}/confirm",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "appointments",
+            "{{pendingAppointmentId}}",
+            "confirm"
+          ]
+        }
+      }
+    }
+  ]
+}
