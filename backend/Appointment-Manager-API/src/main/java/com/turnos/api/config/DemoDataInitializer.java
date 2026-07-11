@@ -2,6 +2,8 @@ package com.turnos.api.config;
 
 import com.turnos.api.availability.BusinessHours;
 import com.turnos.api.availability.BusinessHoursRepository;
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
 import com.turnos.api.professionals.Professional;
 import com.turnos.api.professionals.ProfessionalRepository;
 import com.turnos.api.services.Service;
@@ -33,6 +35,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final ServiceRepository serviceRepository;
     private final ProfessionalRepository professionalRepository;
     private final BusinessHoursRepository businessHoursRepository;
+    private final BusinessRepository businessRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DemoDataInitializer(
@@ -40,30 +43,36 @@ public class DemoDataInitializer implements CommandLineRunner {
             ServiceRepository serviceRepository,
             ProfessionalRepository professionalRepository,
             BusinessHoursRepository businessHoursRepository,
+            BusinessRepository businessRepository,
             PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.serviceRepository = serviceRepository;
         this.professionalRepository = professionalRepository;
         this.businessHoursRepository = businessHoursRepository;
+        this.businessRepository = businessRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
-        createClient();
-        findOrCreateService();
-        Professional professional = findOrCreateProfessional();
-        createBusinessHours(professional);
+        Business defaultBusiness = businessRepository.findById(1L)
+                .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+
+        createClient(defaultBusiness);
+        findOrCreateService(defaultBusiness);
+        Professional professional = findOrCreateProfessional(defaultBusiness);
+        createBusinessHours(defaultBusiness, professional);
     }
 
-    private void createClient() {
+    private void createClient(Business business) {
         if (userRepository.existsByEmail(CLIENT_EMAIL)) {
             return;
         }
 
         User client = new User(
+                business,
                 "Demo Client",
                 CLIENT_EMAIL,
                 passwordEncoder.encode("client1234"),
@@ -74,11 +83,12 @@ public class DemoDataInitializer implements CommandLineRunner {
         userRepository.save(client);
     }
 
-    private Service findOrCreateService() {
+    private Service findOrCreateService(Business business) {
         return serviceRepository.findAll().stream()
                 .filter(service -> SERVICE_NAME.equalsIgnoreCase(service.getName()))
                 .findFirst()
                 .orElseGet(() -> serviceRepository.save(new Service(
+                        business,
                         SERVICE_NAME,
                         "General demo appointment",
                         30,
@@ -86,22 +96,23 @@ public class DemoDataInitializer implements CommandLineRunner {
                 )));
     }
 
-    private Professional findOrCreateProfessional() {
+    private Professional findOrCreateProfessional(Business business) {
         return professionalRepository.findByEmail(PROFESSIONAL_EMAIL)
                 .orElseGet(() -> professionalRepository.save(new Professional(
+                        business,
                         "Demo Professional",
                         PROFESSIONAL_EMAIL,
                         "555-0202"
                 )));
     }
 
-    private void createBusinessHours(Professional professional) {
+    private void createBusinessHours(Business business, Professional professional) {
         Arrays.stream(DayOfWeek.values())
                 .filter(day -> day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY)
-                .forEach(day -> createBusinessHoursForDay(professional, day));
+                .forEach(day -> createBusinessHoursForDay(business, professional, day));
     }
 
-    private void createBusinessHoursForDay(Professional professional, DayOfWeek day) {
+    private void createBusinessHoursForDay(Business business, Professional professional, DayOfWeek day) {
         LocalTime startTime = LocalTime.of(9, 0);
         LocalTime endTime = LocalTime.of(17, 0);
 
@@ -111,7 +122,7 @@ public class DemoDataInitializer implements CommandLineRunner {
                 .anyMatch(hours -> hours.getStartTime().equals(startTime) && hours.getEndTime().equals(endTime));
 
         if (!alreadyExists) {
-            businessHoursRepository.save(new BusinessHours(professional, day, startTime, endTime));
+            businessHoursRepository.save(new BusinessHours(business, professional, day, startTime, endTime));
         }
     }
 }

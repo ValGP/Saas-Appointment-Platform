@@ -1,11 +1,16 @@
 package com.turnos.api.services;
 
+import com.turnos.api.business.Business;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.Objects;
 
 @Entity
 @Table(name = "service_categories")
@@ -15,10 +20,14 @@ public class ServiceCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
+
     @Column(nullable = false, length = 120)
     private String name;
 
-    @Column(nullable = false, length = 140, unique = true)
+    @Column(nullable = false, length = 140)
     private String slug;
 
     @Column(length = 500)
@@ -33,12 +42,18 @@ public class ServiceCategory {
     protected ServiceCategory() {
     }
 
-    public ServiceCategory(String name, String slug, String description, int displayOrder) {
+    public ServiceCategory(Business business, String name, String slug, String description, int displayOrder) {
+        this.business = Objects.requireNonNull(business, "business is required");
         this.name = requireText(name, "name");
         this.slug = requireText(slug, "slug");
         this.description = description;
         this.displayOrder = displayOrder;
         this.active = true;
+    }
+
+    @Deprecated
+    public ServiceCategory(String name, String slug, String description, int displayOrder) {
+        this(Business.createTestBusiness(1L), name, slug, description, displayOrder);
     }
 
     public void updateDetails(String name, String slug, String description, int displayOrder) {
@@ -58,6 +73,10 @@ public class ServiceCategory {
 
     public Long getId() {
         return id;
+    }
+
+    public Business getBusiness() {
+        return business;
     }
 
     public String getName() {

@@ -1,7 +1,9 @@
 package com.turnos.api.services;
 
+import com.turnos.api.business.Business;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -13,6 +15,7 @@ import org.hibernate.annotations.DynamicUpdate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @DynamicInsert
@@ -23,6 +26,10 @@ public class Service {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
 
     @Column(nullable = false, length = 120)
     private String name;
@@ -52,14 +59,25 @@ public class Service {
     protected Service() {
     }
 
+    public Service(Business business, String name, String description, int durationMinutes, BigDecimal price) {
+        this(business, name, description, durationMinutes, price, null, true, false);
+    }
+
+    public Service(Business business, String name, String description, int durationMinutes, BigDecimal price, ServiceCategory category) {
+        this(business, name, description, durationMinutes, price, category, true, false);
+    }
+
+    @Deprecated
     public Service(String name, String description, int durationMinutes, BigDecimal price) {
-        this(name, description, durationMinutes, price, null, true, false);
+        this(Business.createTestBusiness(1L), name, description, durationMinutes, price, null, true, false);
     }
 
+    @Deprecated
     public Service(String name, String description, int durationMinutes, BigDecimal price, ServiceCategory category) {
-        this(name, description, durationMinutes, price, category, true, false);
+        this(Business.createTestBusiness(1L), name, description, durationMinutes, price, category, true, false);
     }
 
+    @Deprecated
     public Service(
             String name,
             String description,
@@ -69,6 +87,20 @@ public class Service {
             boolean onlineBookable,
             boolean requiresEvaluation
     ) {
+        this(Business.createTestBusiness(1L), name, description, durationMinutes, price, category, onlineBookable, requiresEvaluation);
+    }
+
+    public Service(
+            Business business,
+            String name,
+            String description,
+            int durationMinutes,
+            BigDecimal price,
+            ServiceCategory category,
+            boolean onlineBookable,
+            boolean requiresEvaluation
+    ) {
+        this.business = Objects.requireNonNull(business, "business is required");
         this.name = requireText(name, "name");
         this.description = description;
         this.durationMinutes = durationMinutes;
@@ -137,6 +169,10 @@ public class Service {
 
     public Long getId() {
         return id;
+    }
+
+    public Business getBusiness() {
+        return business;
     }
 
     public String getName() {

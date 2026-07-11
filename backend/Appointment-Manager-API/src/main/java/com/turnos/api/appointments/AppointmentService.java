@@ -3,6 +3,9 @@ package com.turnos.api.appointments;
 import com.turnos.api.auth.AuthenticatedUser;
 import com.turnos.api.availability.AvailabilityBlockRepository;
 import com.turnos.api.availability.BusinessHoursRepository;
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ConflictException;
 import com.turnos.api.common.ResourceNotFoundException;
 import com.turnos.api.notifications.NotificationService;
@@ -34,6 +37,7 @@ public class AppointmentService {
     private final ServiceRepository serviceRepository;
     private final BusinessHoursRepository businessHoursRepository;
     private final AvailabilityBlockRepository availabilityBlockRepository;
+    private final BusinessRepository businessRepository;
     private final NotificationService notificationService;
     private final ProfessionalServiceAssignmentService professionalServiceAssignmentService;
 
@@ -44,6 +48,7 @@ public class AppointmentService {
             ServiceRepository serviceRepository,
             BusinessHoursRepository businessHoursRepository,
             AvailabilityBlockRepository availabilityBlockRepository,
+            BusinessRepository businessRepository,
             NotificationService notificationService,
             ProfessionalServiceAssignmentService professionalServiceAssignmentService
     ) {
@@ -53,6 +58,7 @@ public class AppointmentService {
         this.serviceRepository = serviceRepository;
         this.businessHoursRepository = businessHoursRepository;
         this.availabilityBlockRepository = availabilityBlockRepository;
+        this.businessRepository = businessRepository;
         this.notificationService = notificationService;
         this.professionalServiceAssignmentService = professionalServiceAssignmentService;
     }
@@ -70,9 +76,11 @@ public class AppointmentService {
         professionalServiceAssignmentService.ensureProfessionalProvidesService(professional.getId(), service.getId());
         validateAvailability(professional.getId(), request.startDateTime(), endDateTime);
 
+        Business business = getActiveBusiness();
+
         Appointment appointment = authenticatedUser.getRole() == UserRole.ADMIN
-                ? Appointment.createConfirmedByAdmin(client, professional, service, request.startDateTime())
-                : Appointment.createRequestedByClient(client, professional, service, request.startDateTime());
+                ? Appointment.createConfirmedByAdmin(business, client, professional, service, request.startDateTime())
+                : Appointment.createRequestedByClient(business, client, professional, service, request.startDateTime());
         appointment.updateNotes(request.notes());
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
@@ -215,7 +223,7 @@ public class AppointmentService {
                         OCCUPYING_STATUSES,
                         endDateTime,
                         startDateTime
-                )
+                    )
                 .isEmpty();
         if (overlapsAppointment) {
             throw new ConflictException("Appointment overlaps with another pending or confirmed appointment");
@@ -271,5 +279,14 @@ public class AppointmentService {
     private com.turnos.api.services.Service getService(Long id) {
         return serviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service", id));
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }

@@ -1,5 +1,8 @@
 package com.turnos.api.professionals;
 
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ConflictException;
 import com.turnos.api.common.ResourceNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,9 +13,11 @@ import java.util.List;
 public class ProfessionalService {
 
     private final ProfessionalRepository professionalRepository;
+    private final BusinessRepository businessRepository;
 
-    public ProfessionalService(ProfessionalRepository professionalRepository) {
+    public ProfessionalService(ProfessionalRepository professionalRepository, BusinessRepository businessRepository) {
         this.professionalRepository = professionalRepository;
+        this.businessRepository = businessRepository;
     }
 
     @Transactional
@@ -22,7 +27,9 @@ public class ProfessionalService {
             throw new ConflictException("Professional email already registered: " + email);
         }
 
-        Professional professional = new Professional(request.fullName(), email, request.phone());
+        Business business = getActiveBusiness();
+
+        Professional professional = new Professional(business, request.fullName(), email, request.phone());
         return ProfessionalResponse.from(professionalRepository.save(professional));
     }
 
@@ -70,5 +77,14 @@ public class ProfessionalService {
     Professional getProfessional(Long id) {
         return professionalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Professional", id));
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }

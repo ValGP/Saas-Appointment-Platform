@@ -22,7 +22,7 @@ Este plan describe los pasos técnicos y decisiones de diseño necesarios para t
 
 ---
 
-## Open Questions
+## Open Questions & Product Strategy
 
 > [!IMPORTANT]
 > **1. Registro Autónomo de Negocios (Self-Service) vs. Onboarding Manual**
@@ -39,22 +39,45 @@ Este plan describe los pasos técnicos y decisiones de diseño necesarios para t
 
 ---
 
+## Estrategia de Funcionalidades Inspirada en TurnoFácil
+
+Para estructurar la aplicación pensando en un modelo **Freemium (Free vs Pro)**, incorporaremos los siguientes pilares de manera transversal durante las fases de desarrollo:
+
+### A. Reserva sin Fricciones (Fase 2 y 3)
+- **Wizard Público:** Los clientes podrán reservar turnos sin iniciar sesión/registrarse previamente. Realizarán la selección completa de servicio, profesional y horario de forma anónima.
+- **Formulario Final de Contacto:** En el último paso se solicitará: Nombre, Teléfono y Email.
+- **Creación en Segundo Plano:** El backend creará/asociará automáticamente un registro de cliente silencioso para ese negocio.
+- **Enlace Único de Turno (Tokenizado):** El cliente recibe un enlace único para visualizar o cancelar su turno sin necesidad de crear contraseñas.
+
+### B. Diferenciación de Planes (Free vs Pro)
+- **Modelo de Límites:**
+  - `Plan Free`: Permitirá gestionar 1 sola empresa/negocio.
+  - `Plan Pro`: Permitirá empresas ilimitadas en una misma cuenta de administración.
+- **Monetización (MercadoPago):**
+  - La base de datos incluirá campos de configuración de pasarela de pago (`mp_client_id`, `mp_client_secret` o `mp_access_token`).
+  - Solo los negocios en `Plan Pro` tendrán acceso a activar cobro total o cobro de seña obligatorio al reservar.
+- **Marca Propia:**
+  - El frontend cargará un indicador de `powered_by` para inquilinos en el plan Free, y lo ocultará en el plan Pro.
+
+---
+
 ## Proposed Changes
 
 La implementación se dividirá en tres etapas consecutivas para mantener la estabilidad del sistema:
 
 1.  **Backend & Database:** Definir la entidad `Business`, migrar la base de datos y filtrar datos.
-2.  **Authentication & Security:** Ajustar JWT y control de acceso.
+2.  **Authentication & Security:** Ajustar JWT, control de acceso y endpoint público de turnos.
 3.  **Frontend Adaptations:** Ajustar rutas, diseño dinámico y aislamiento visual.
 
 ---
 
 ### 1. Database & Migrations (Backend)
 
-Modificación de la base de datos para introducir el aislamiento.
+Modificación de la base de datos para introducir el aislamiento y soporte de planes / MercadoPago.
 
 #### [NEW] [V6__add_business_and_tenant_isolation.sql](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/resources/db/migration/V6__add_business_and_tenant_isolation.sql)
-- Crear la tabla `business` con campos como `id`, `name`, `slug`, `whatsapp`, `primary_color`, `theme_preset`, `booking_enabled`, `active`, y fechas de creación.
+- Crear la tabla `business` con campos como `id`, `name`, `slug` (VARCHAR UNIQUE), `timezone` (VARCHAR, ej. 'America/Argentina/Buenos_Aires'), `whatsapp`, `primary_color`, `theme_preset`, `booking_enabled`, `plan_type` (FREE, PRO), `mp_access_token`, `show_branding` (boolean), `active` (boolean), y fechas de creación.
+- Modificar la tabla `appointments` para agregar `public_uuid` (UUID UNIQUE) que sirva como token de acceso público para invitados, garantizando seguridad contra adivinación de IDs.
 - Agregar la columna `business_id` (FK a `business.id`) a las siguientes tablas:
   - `users`
   - `services`
@@ -65,11 +88,12 @@ Modificación de la base de datos para introducir el aislamiento.
   - `appointments`
 - Crear un negocio por defecto (BIBE Estética) para migrar los datos existentes sin perder información (baseline migration).
 
+
 ---
 
 ### 2. Backend Domain & APIs
 
-Adaptar el código Java para filtrar automáticamente todas las consultas operativas por el negocio del usuario autenticado.
+Adaptar el código Java para filtrar automáticamente todas las consultas operativas por el negocio del usuario autenticado y habilitar la reserva pública.
 
 #### [MODIFY] [User.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/users/User.java)
 - Añadir la relación `@ManyToOne` con la entidad `Business`.
@@ -81,13 +105,14 @@ Para cada repositorio relevante (ej. `AppointmentRepository`, `ServiceRepository
 
 #### [MODIFY] Lógica de Autenticación y Security
 - Actualizar `com.turnos.api.config.SecurityConfig` y los filtros JWT para decodificar el `businessId` del usuario autenticado a partir del Token JWT.
+- Permitir acceso anónimo (público) al endpoint de reserva de turnos (`POST /api/public/appointments`).
 - Exponer el `businessId` en el objeto `UserDetails` personalizado (ej. `AuthenticatedUser`).
 
 ---
 
 ### 3. Frontend & routing
 
-Reestructurar el frontend para resolver el inquilino a partir de la URL y aplicar estilos de marca personalizados.
+Reestructurar el frontend para resolver el inquilino a partir de la URL, aplicar estilos de marca personalizados y soportar la reserva de invitados.
 
 #### [MODIFY] [router.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/router/router.tsx)
 - Reorganizar las rutas públicas, de cliente y administración para que cuelguen de un Layout con parámetro dinámico: `/n/:businessSlug`.
@@ -97,6 +122,7 @@ Reestructurar el frontend para resolver el inquilino a partir de la URL y aplica
 
 #### [MODIFY] [httpClient.ts](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/shared/api/httpClient.ts)
 - Incluir un encabezado HTTP personalizado (ej. `X-Business-Slug` o `X-Business-ID`) en todas las peticiones al backend si el usuario no está autenticado, para que el backend sepa a qué negocio corresponde la consulta (por ejemplo, para cargar la lista de servicios en la landing de reservas).
+
 
 ---
 

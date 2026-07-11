@@ -1,12 +1,16 @@
 package com.turnos.api.users;
 
+import com.turnos.api.business.Business;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
@@ -20,10 +24,14 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
+
     @Column(nullable = false, length = 120)
     private String fullName;
 
-    @Column(nullable = false, unique = true, length = 160)
+    @Column(nullable = false, length = 160)
     private String email;
 
     @Column(nullable = false)
@@ -45,7 +53,8 @@ public class User {
     protected User() {
     }
 
-    public User(String fullName, String email, String passwordHash, String phone, UserRole role) {
+    public User(Business business, String fullName, String email, String passwordHash, String phone, UserRole role) {
+        this.business = Objects.requireNonNull(business, "business is required");
         this.fullName = requireText(fullName, "fullName");
         this.email = requireText(email, "email").toLowerCase();
         this.passwordHash = requireText(passwordHash, "passwordHash");
@@ -53,6 +62,11 @@ public class User {
         this.role = Objects.requireNonNull(role, "role is required");
         this.active = true;
         this.createdAt = LocalDateTime.now();
+    }
+
+    @Deprecated
+    public User(String fullName, String email, String passwordHash, String phone, UserRole role) {
+        this(Business.createTestBusiness(1L), fullName, email, passwordHash, phone, role);
     }
 
     public void activate() {
@@ -92,6 +106,10 @@ public class User {
 
     public Long getId() {
         return id;
+    }
+
+    public Business getBusiness() {
+        return business;
     }
 
     public String getFullName() {

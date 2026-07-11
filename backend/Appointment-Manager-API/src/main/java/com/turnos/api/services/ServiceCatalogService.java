@@ -1,5 +1,8 @@
 package com.turnos.api.services;
 
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ResourceNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,16 +13,21 @@ public class ServiceCatalogService {
 
     private final ServiceRepository serviceRepository;
     private final ServiceCategoryService categoryService;
+    private final BusinessRepository businessRepository;
 
-    public ServiceCatalogService(ServiceRepository serviceRepository, ServiceCategoryService categoryService) {
+    public ServiceCatalogService(ServiceRepository serviceRepository, ServiceCategoryService categoryService, BusinessRepository businessRepository) {
         this.serviceRepository = serviceRepository;
         this.categoryService = categoryService;
+        this.businessRepository = businessRepository;
     }
 
     @Transactional
     public ServiceResponse create(ServiceRequest request) {
         ServiceCategory category = categoryService.getActiveCategory(request.categoryId());
+        Business business = getActiveBusiness();
+
         Service service = new Service(
+                business,
                 request.name(),
                 request.description(),
                 request.durationMinutes(),
@@ -82,5 +90,14 @@ public class ServiceCatalogService {
     private Service getService(Long id) {
         return serviceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service", id));
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }

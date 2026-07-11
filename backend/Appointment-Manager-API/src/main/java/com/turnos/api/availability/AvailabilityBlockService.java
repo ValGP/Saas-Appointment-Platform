@@ -2,6 +2,9 @@ package com.turnos.api.availability;
 
 import com.turnos.api.appointments.AppointmentRepository;
 import com.turnos.api.appointments.AppointmentStatus;
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ConflictException;
 import com.turnos.api.common.ResourceNotFoundException;
 import com.turnos.api.professionals.Professional;
@@ -21,15 +24,18 @@ public class AvailabilityBlockService {
     private final AvailabilityBlockRepository availabilityBlockRepository;
     private final ProfessionalRepository professionalRepository;
     private final AppointmentRepository appointmentRepository;
+    private final BusinessRepository businessRepository;
 
     public AvailabilityBlockService(
             AvailabilityBlockRepository availabilityBlockRepository,
             ProfessionalRepository professionalRepository,
-            AppointmentRepository appointmentRepository
+            AppointmentRepository appointmentRepository,
+            BusinessRepository businessRepository
     ) {
         this.availabilityBlockRepository = availabilityBlockRepository;
         this.professionalRepository = professionalRepository;
         this.appointmentRepository = appointmentRepository;
+        this.businessRepository = businessRepository;
     }
 
     @Transactional
@@ -38,7 +44,10 @@ public class AvailabilityBlockService {
         Professional professional = getProfessional(request.professionalId());
         ensureNoActiveAppointmentOverlap(request);
 
+        Business business = getActiveBusiness();
+
         AvailabilityBlock block = new AvailabilityBlock(
+                business,
                 professional,
                 request.startDateTime(),
                 request.endDateTime(),
@@ -125,5 +134,14 @@ public class AvailabilityBlockService {
     private Professional getProfessional(Long id) {
         return professionalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Professional", id));
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }

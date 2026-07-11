@@ -1,5 +1,6 @@
 package com.turnos.api.availability;
 
+import com.turnos.api.business.Business;
 import com.turnos.api.professionals.Professional;
 import com.turnos.api.services.Service;
 import jakarta.persistence.Column;
@@ -29,6 +30,10 @@ public class BusinessHours {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "professional_id", nullable = false)
     private Professional professional;
 
@@ -48,12 +53,18 @@ public class BusinessHours {
     protected BusinessHours() {
     }
 
-    public BusinessHours(Professional professional, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+    public BusinessHours(Business business, Professional professional, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+        this.business = Objects.requireNonNull(business, "business is required");
         this.professional = Objects.requireNonNull(professional, "professional is required");
         this.dayOfWeek = Objects.requireNonNull(dayOfWeek, "dayOfWeek is required");
         this.startTime = Objects.requireNonNull(startTime, "startTime is required");
         this.endTime = Objects.requireNonNull(endTime, "endTime is required");
         this.active = true;
+    }
+
+    @Deprecated
+    public BusinessHours(Professional professional, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+        this(Business.createTestBusiness(1L), professional, dayOfWeek, startTime, endTime);
     }
 
     public void activate() {
@@ -104,6 +115,10 @@ public class BusinessHours {
 
     public Long getId() {
         return id;
+    }
+
+    public Business getBusiness() {
+        return business;
     }
 
     public Professional getProfessional() {

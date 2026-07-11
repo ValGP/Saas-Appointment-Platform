@@ -1,5 +1,8 @@
 package com.turnos.api.services;
 
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ConflictException;
 import com.turnos.api.common.ResourceNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,19 +14,25 @@ public class ServiceCategoryService {
 
     private final ServiceCategoryRepository categoryRepository;
     private final ServiceRepository serviceRepository;
+    private final BusinessRepository businessRepository;
 
     public ServiceCategoryService(
             ServiceCategoryRepository categoryRepository,
-            ServiceRepository serviceRepository
+            ServiceRepository serviceRepository,
+            BusinessRepository businessRepository
     ) {
         this.categoryRepository = categoryRepository;
         this.serviceRepository = serviceRepository;
+        this.businessRepository = businessRepository;
     }
 
     @Transactional
     public ServiceCategoryResponse create(ServiceCategoryRequest request) {
         ensureUniqueSlug(request.slug(), null);
+        Business business = getActiveBusiness();
+
         ServiceCategory category = new ServiceCategory(
+                business,
                 request.name(),
                 normalizeSlug(request.slug()),
                 request.description(),
@@ -100,5 +109,14 @@ public class ServiceCategoryService {
 
     private static String normalizeSlug(String slug) {
         return slug == null ? null : slug.trim().toLowerCase();
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }

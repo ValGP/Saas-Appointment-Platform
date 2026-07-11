@@ -1,5 +1,6 @@
 package com.turnos.api.appointments;
 
+import com.turnos.api.business.Business;
 import com.turnos.api.professionals.Professional;
 import com.turnos.api.services.Service;
 import com.turnos.api.users.User;
@@ -17,6 +18,7 @@ import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "appointments")
@@ -25,6 +27,13 @@ public class Appointment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
+
+    @Column(nullable = false, unique = true)
+    private UUID publicUuid;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "client_id", nullable = false)
@@ -75,7 +84,9 @@ public class Appointment {
     protected Appointment() {
     }
 
-    private Appointment(User client, Professional professional, Service service, LocalDateTime startDateTime) {
+    private Appointment(Business business, User client, Professional professional, Service service, LocalDateTime startDateTime) {
+        this.business = Objects.requireNonNull(business, "business is required");
+        this.publicUuid = UUID.randomUUID();
         this.client = Objects.requireNonNull(client, "client is required");
         this.professional = Objects.requireNonNull(professional, "professional is required");
         this.service = Objects.requireNonNull(service, "service is required");
@@ -85,19 +96,29 @@ public class Appointment {
         this.updatedAt = createdAt;
     }
 
-    public static Appointment createRequestedByClient(User client, Professional professional, Service service, LocalDateTime startDateTime) {
-        Appointment appointment = new Appointment(client, professional, service, startDateTime);
+    public static Appointment createRequestedByClient(Business business, User client, Professional professional, Service service, LocalDateTime startDateTime) {
+        Appointment appointment = new Appointment(business, client, professional, service, startDateTime);
         appointment.status = AppointmentStatus.PENDING;
         appointment.createdByRole = CreatedByRole.CLIENT;
         return appointment;
     }
 
-    public static Appointment createConfirmedByAdmin(User client, Professional professional, Service service, LocalDateTime startDateTime) {
-        Appointment appointment = new Appointment(client, professional, service, startDateTime);
+    @Deprecated
+    public static Appointment createRequestedByClient(User client, Professional professional, Service service, LocalDateTime startDateTime) {
+        return createRequestedByClient(Business.createTestBusiness(1L), client, professional, service, startDateTime);
+    }
+
+    public static Appointment createConfirmedByAdmin(Business business, User client, Professional professional, Service service, LocalDateTime startDateTime) {
+        Appointment appointment = new Appointment(business, client, professional, service, startDateTime);
         appointment.status = AppointmentStatus.CONFIRMED;
         appointment.createdByRole = CreatedByRole.ADMIN;
         appointment.confirmedAt = LocalDateTime.now();
         return appointment;
+    }
+
+    @Deprecated
+    public static Appointment createConfirmedByAdmin(User client, Professional professional, Service service, LocalDateTime startDateTime) {
+        return createConfirmedByAdmin(Business.createTestBusiness(1L), client, professional, service, startDateTime);
     }
 
     public void confirm() {
@@ -183,6 +204,14 @@ public class Appointment {
 
     public Long getId() {
         return id;
+    }
+
+    public Business getBusiness() {
+        return business;
+    }
+
+    public UUID getPublicUuid() {
+        return publicUuid;
     }
 
     public User getClient() {

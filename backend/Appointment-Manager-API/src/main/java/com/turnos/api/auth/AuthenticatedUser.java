@@ -12,6 +12,7 @@ import java.util.List;
 public class AuthenticatedUser implements UserDetails {
 
     private final Long id;
+    private final Long businessId;
     private final String fullName;
     private final String email;
     private final String passwordHash;
@@ -20,6 +21,7 @@ public class AuthenticatedUser implements UserDetails {
 
     public AuthenticatedUser(User user) {
         this.id = user.getId();
+        this.businessId = user.getBusiness() != null ? user.getBusiness().getId() : null;
         this.fullName = user.getFullName();
         this.email = user.getEmail();
         this.passwordHash = user.getPasswordHash();
@@ -29,6 +31,10 @@ public class AuthenticatedUser implements UserDetails {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getBusinessId() {
+        return businessId;
     }
 
     public String getFullName() {

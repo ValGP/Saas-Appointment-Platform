@@ -1,5 +1,6 @@
 package com.turnos.api.availability;
 
+import com.turnos.api.business.Business;
 import com.turnos.api.professionals.Professional;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,6 +24,10 @@ public class AvailabilityBlock {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "professional_id", nullable = false)
@@ -50,7 +55,8 @@ public class AvailabilityBlock {
     protected AvailabilityBlock() {
     }
 
-    public AvailabilityBlock(Professional professional, LocalDateTime startDateTime, LocalDateTime endDateTime, String reason, AvailabilityBlockType type) {
+    public AvailabilityBlock(Business business, Professional professional, LocalDateTime startDateTime, LocalDateTime endDateTime, String reason, AvailabilityBlockType type) {
+        this.business = Objects.requireNonNull(business, "business is required");
         this.professional = Objects.requireNonNull(professional, "professional is required");
         this.startDateTime = Objects.requireNonNull(startDateTime, "startDateTime is required");
         this.endDateTime = Objects.requireNonNull(endDateTime, "endDateTime is required");
@@ -58,6 +64,11 @@ public class AvailabilityBlock {
         this.type = Objects.requireNonNull(type, "type is required");
         this.active = true;
         this.createdAt = LocalDateTime.now();
+    }
+
+    @Deprecated
+    public AvailabilityBlock(Professional professional, LocalDateTime startDateTime, LocalDateTime endDateTime, String reason, AvailabilityBlockType type) {
+        this(Business.createTestBusiness(1L), professional, startDateTime, endDateTime, reason, type);
     }
 
     public void activate() {
@@ -100,6 +111,10 @@ public class AvailabilityBlock {
 
     public Long getId() {
         return id;
+    }
+
+    public Business getBusiness() {
+        return business;
     }
 
     public Professional getProfessional() {

@@ -1,5 +1,8 @@
 package com.turnos.api.availability;
 
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ConflictException;
 import com.turnos.api.common.ResourceNotFoundException;
 import com.turnos.api.professionals.Professional;
@@ -13,10 +16,12 @@ public class BusinessHoursService {
 
     private final BusinessHoursRepository businessHoursRepository;
     private final ProfessionalRepository professionalRepository;
+    private final BusinessRepository businessRepository;
 
-    public BusinessHoursService(BusinessHoursRepository businessHoursRepository, ProfessionalRepository professionalRepository) {
+    public BusinessHoursService(BusinessHoursRepository businessHoursRepository, ProfessionalRepository professionalRepository, BusinessRepository businessRepository) {
         this.businessHoursRepository = businessHoursRepository;
         this.professionalRepository = professionalRepository;
+        this.businessRepository = businessRepository;
     }
 
     @Transactional
@@ -25,7 +30,10 @@ public class BusinessHoursService {
         Professional professional = getProfessional(request.professionalId());
         ensureNoActiveOverlap(null, request);
 
+        Business business = getActiveBusiness();
+
         BusinessHours businessHours = new BusinessHours(
+                business,
                 professional,
                 request.dayOfWeek(),
                 request.startTime(),
@@ -105,5 +113,14 @@ public class BusinessHoursService {
     private Professional getProfessional(Long id) {
         return professionalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Professional", id));
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }

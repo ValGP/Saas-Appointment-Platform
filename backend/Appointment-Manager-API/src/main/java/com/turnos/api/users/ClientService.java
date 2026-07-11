@@ -1,5 +1,8 @@
 package com.turnos.api.users;
 
+import com.turnos.api.business.Business;
+import com.turnos.api.business.BusinessRepository;
+import com.turnos.api.business.TenantContext;
 import com.turnos.api.common.ConflictException;
 import com.turnos.api.common.ResourceNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -11,10 +14,12 @@ import java.util.List;
 public class ClientService {
 
     private final UserRepository userRepository;
+    private final BusinessRepository businessRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public ClientService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public ClientService(UserRepository userRepository, BusinessRepository businessRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.businessRepository = businessRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -27,7 +32,10 @@ public class ClientService {
         validatePasswordLength(request.password());
         ensureEmailAvailable(email, null);
 
+        Business business = getActiveBusiness();
+
         User client = new User(
+                business,
                 request.fullName(),
                 email,
                 passwordEncoder.encode(request.password()),
@@ -100,5 +108,14 @@ public class ClientService {
         if (password.length() < 8 || password.length() > 100) {
             throw new IllegalArgumentException("password size must be between 8 and 100");
         }
+    }
+
+    private Business getActiveBusiness() {
+        Business business = TenantContext.getCurrentTenant();
+        if (business == null) {
+            return businessRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalStateException("Default business with ID 1 must exist"));
+        }
+        return business;
     }
 }
