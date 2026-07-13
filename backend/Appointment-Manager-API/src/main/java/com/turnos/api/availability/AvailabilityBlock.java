@@ -17,8 +17,11 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "availability_blocks")
+@Filter(name = "tenantFilter", condition = "business_id = :businessId")
 public class AvailabilityBlock {
 
     @Id

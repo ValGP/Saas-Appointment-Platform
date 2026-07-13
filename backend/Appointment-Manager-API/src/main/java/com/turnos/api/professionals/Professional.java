@@ -14,8 +14,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.util.Objects;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "professionals")
+@Filter(name = "tenantFilter", condition = "business_id = :businessId")
 public class Professional {
 
     @Id

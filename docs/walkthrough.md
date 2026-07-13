@@ -1,62 +1,67 @@
-# Walkthrough: Fase 1 - Base de Datos y Modelado en Backend
+# Walkthrough: Conversión a SaaS Multi-Tenant
 
-Hemos completado exitosamente la **Fase 1** del plan de conversión a SaaS multi-tenant. Todos los cambios compilan correctamente y la suite de pruebas del backend pasó con 100% de éxito.
+Hemos completado exitosamente la **Fase 1** y la **Fase 2** del plan de conversión a SaaS multi-tenant. Todos los cambios compilan correctamente y la suite de pruebas del backend pasó con 100% de éxito.
 
 ---
 
-## Cambios Realizados
+## Fase 1: Base de Datos y Modelado en Backend (Completado)
+* **Migración SQL (Flyway V6):** Creación de la tabla `business` y adición de la columna `business_id` en cascada a todas las entidades del modelo. Migración de los datos bajo el negocio por defecto "BIBE Estética" (ID=1) sin pérdidas. Adición del campo `public_uuid` a los turnos.
+* **Modelado en Java:** Creación de las clases `Business`, `PlanType`, `BusinessRepository` y `TenantContext` (gestor ThreadLocal del inquilino activo).
+* **Vinculación de Entidades:** Asociación `@ManyToOne` con `Business` en todas las clases clave del modelo de datos (`User`, `Service`, `ServiceCategory`, `Professional`, `BusinessHours`, `AvailabilityBlock`, `Appointment`).
 
-### 1. Migración de Base de Datos (Flyway)
-- **[NEW] [V6__add_business_and_tenant_isolation.sql](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/resources/db/migration/V6__add_business_and_tenant_isolation.sql):**
-  - Creada la tabla `business` (inquilinos) para almacenar:
-    - Campos de personalización (`name`, `slug` único, `timezone`, `whatsapp`, `primary_color`, `theme_preset`, `booking_enabled`).
-    - Campos comerciales (`plan_type` [FREE, PRO], `mp_access_token`, `show_branding`).
-  - Añadida la columna `business_id` (FK a `business.id`) a las tablas operativas: `app_users`, `services`, `service_categories`, `professionals`, `business_hours`, `availability_blocks` y `appointments`.
-  - Añadida la columna `public_uuid` (UUID UNIQUE) a la tabla `appointments` para enlaces seguros sin login.
-  - Creado un inquilino por defecto (BIBE Estética, ID=1) y migrados todos los datos existentes bajo este inquilino para evitar pérdida de información.
-  - Reemplazadas las restricciones únicas globales por restricciones compuestas por inquilino:
-    - `uk_app_users_business_email` (business_id, email)
-    - `uk_professionals_business_email` (business_id, email)
-    - `uk_service_categories_business_slug` (business_id, slug)
+---
 
-### 2. Entidades de Dominio (JPA Java)
-- **[NEW] [Business.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/Business.java) & [PlanType.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/PlanType.java):** Creada la entidad para representar a los inquilinos y sus niveles de suscripción.
-- **[NEW] [BusinessRepository.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/BusinessRepository.java):** Repositorio para realizar consultas de negocios por ID o slug.
-- **[NEW] [TenantContext.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantContext.java):** Implementación de ThreadLocal para almacenar el contexto de inquilino activo durante el ciclo de vida de la petición HTTP.
-- **[MODIFY] Entidades Principales:** Se agregó la relación `@ManyToOne Business business` y su respectivo getter en:
-  - `User.java`
-  - `Service.java`
-  - `ServiceCategory.java`
-  - `Professional.java`
-  - `BusinessHours.java`
-  - `AvailabilityBlock.java`
-  - `Appointment.java` (añadido también el campo `publicUuid` con generación automática `UUID.randomUUID()`).
+## Fase 2: Aislamiento, Seguridad y Endpoint Público en Backend (Completado)
 
-### 3. Servicios del Sistema e Inicializadores
-- Adaptadas las clases de servicio (`AuthService`, `ClientService`, `ProfessionalService`, `ServiceCatalogService`, `ServiceCategoryService`, `AvailabilityBlockService`, `BusinessHoursService` y `AppointmentService`) para inyectar `BusinessRepository` y resolver la asociación al negocio activo en base a `TenantContext` o por fallback al negocio por defecto (ID=1).
-- Modificados los inicializadores (`AdminUserInitializer.java` y `DemoDataInitializer.java`) para asociar la data demo del entorno de desarrollo al negocio de BIBE Estética (ID=1).
+### 1. Resolución y Aislamiento Dinámico de Inquilinos
+- **[NEW] [TenantFilter.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantFilter.java):** 
+  Filtro servlet que intercepta cada petición y resuelve el inquilino activo:
+  - **Peticiones Públicas:** Obtiene el slug a través del encabezado HTTP `X-Business-Slug` y busca el negocio correspondiente en la base de datos.
+  - **Peticiones Autenticadas:** Obtiene el `businessId` incrustado dentro del principal del usuario (`AuthenticatedUser`).
+  - Una vez resuelto, establece el negocio en `TenantContext` y al finalizar la petición lo limpia para evitar fugas de memoria.
+- **[NEW] [TenantAspect.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantAspect.java):** 
+  Aspecto de Spring AOP que intercepta todas las ejecuciones de los repositorios Spring Data. Si existe un inquilino activo en `TenantContext`, activa dinámicamente el filtro de Hibernate `tenantFilter` en la sesión actual de la base de datos, inyectando el parámetro `businessId`.
+- **[MODIFY] Entidades Principales:** Se agregaron las anotaciones `@Filter` de Hibernate en cada entidad operativa (`User`, `Service`, `ServiceCategory`, `Professional`, `BusinessHours`, `AvailabilityBlock`, `Appointment`), forzando que todas las consultas SQL filtren por `business_id = :businessId` en segundo plano sin intervención manual del desarrollador.
 
-### 4. Retrocompatibilidad para Tests
-- Para evitar reescribir los 84 tests del backend (que construyen entidades de forma manual sin contexto de negocio en memoria), mantuvimos los constructores antiguos como `@Deprecated` en las clases de entidad, asociándolos automáticamente con un `Business.createTestBusiness(1L)` de prueba. Esto garantiza que la suite de pruebas compile inmediatamente y pase sin modificar un solo archivo de test original.
+### 2. Configuración de Seguridad y JWT
+- **[MODIFY] [JwtService.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/auth/JwtService.java):** 
+  Se añadió la propiedad `businessId` a los claims del Token JWT generado y se creó el método `extractBusinessId` para decodificarlo.
+- **[MODIFY] [SecurityConfig.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/config/SecurityConfig.java):**
+  - Registrado `TenantFilter` para ejecutarse inmediatamente después de `JwtAuthenticationFilter`.
+  - Excluidos del flujo de autenticación obligatoria los paths públicos de la API (`/public/**` y `/api/public/**`).
+  - Añadido el encabezado `X-Business-Slug` a los encabezados CORS permitidos para preflight requests.
+
+### 3. Endpoints Públicos y Reserva Anónima
+- **[NEW] [PublicBusinessResponse.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/PublicBusinessResponse.java):** DTO que expone únicamente los campos configurables del negocio (nombre, colores, preset, branding, etc.).
+- **[NEW] [PublicBookingRequest.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/appointments/PublicBookingRequest.java):** DTO para recibir reservas de invitados (datos del turno + email, teléfono y nombre completo del cliente).
+- **[NEW] [PublicBusinessController.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/PublicBusinessController.java):**
+  Exposición de los endpoints públicos permitidos sin credenciales:
+  - `GET /api/public/businesses/{slug}` (Configuración de marca/visual)
+  - `GET /api/public/services` (Listado de servicios filtrados por tenant)
+  - `GET /api/public/service-categories` (Categorías de servicios filtradas por tenant)
+  - `GET /api/public/professionals` (Profesionales activos del tenant)
+  - `GET /api/public/availability` (Consulta de disponibilidad horaria)
+  - `POST /api/public/appointments` (Proceso de reserva anónima)
+- **[MODIFY] [AppointmentService.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/appointments/AppointmentService.java):** 
+  Implementación del método `createPublicAppointment` que busca un usuario por email en el negocio actual; si no existe, lo registra de forma "silenciosa" (como cliente, con una contraseña aleatoria de seguridad e inactiva para login) y procede a crear la reserva asignándole el `publicUuid`.
 
 ---
 
 ## Verificación y Resultados de Pruebas
 
-### 1. Compilación
-El proyecto backend compila perfectamente en su totalidad:
-```bash
-.\mvnw.cmd compile test-compile
-```
-Resultado: **BUILD SUCCESS**
+### 1. Pruebas de Integración de Endpoints Públicos
+- **[NEW] [PublicBusinessControllerTest.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/test/java/com/turnos/api/business/PublicBusinessControllerTest.java):** 
+  Creado suite de test unitarios/integración en Spring Boot para validar que:
+  - Se puede obtener la configuración pública por el slug.
+  - Se puede realizar una reserva pública e invitados de manera exitosa, creando el usuario silencioso de forma transparente y retornando el token `publicUuid` en la respuesta.
 
-### 2. Ejecución de Pruebas Automatizadas
-Ejecutada la suite completa de tests de integración y unitarios:
+### 2. Ejecución Completa de Pruebas
+Ejecutada la suite completa de tests del backend:
 ```bash
 .\mvnw.cmd test
 ```
 Resultado: **BUILD SUCCESS**
-- **Tests ejecutados:** 84
+- **Tests ejecutados:** 86 (84 originales + 2 de la nueva superficie pública)
 - **Fallos:** 0
 - **Errores:** 0
 - **Omitidos:** 0

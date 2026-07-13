@@ -30,6 +30,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(user.getEmail())
                 .claim("userId", user.getId())
+                .claim("businessId", user.getBusiness() != null ? user.getBusiness().getId() : null)
                 .claim("role", user.getRole().name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
@@ -39,6 +40,15 @@ public class JwtService {
 
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    public Long extractBusinessId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object businessIdObj = claims.get("businessId");
+        if (businessIdObj instanceof Number) {
+            return ((Number) businessIdObj).longValue();
+        }
+        return null;
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {

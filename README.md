@@ -1,154 +1,129 @@
-# BIBE Estética - Fullstack Appointment & Availability Management System
+# SaaS Appointment Platform - Multi-Tenant Booking System
 
-This is a **Fullstack** application designed and developed as a live booking and availability management system for **BIBE Estética**. The application features three distinct user surfaces (Public, Client, and Administration) and is built on clean design principles, separation of concerns, and a rich domain model (DDD).
+**SaaS Appointment Platform** is a full-stack, multi-tenant Software-as-a-Service (SaaS) application designed for dynamic scheduling and real-time availability management.
 
-It serves as a stellar portfolio showcase demonstrating the real-world integration of a robust **Spring Boot** backend with a modern, reactive **React + TypeScript** frontend, backed by a comprehensive suite of integration and automated tests.
+The system allows multiple independent businesses (tenants) to run on a shared infrastructure with complete logical data isolation. Each business can manage its service catalog, set weekly schedules for professionals, configure custom availability blocks, and provide customers with personalized booking portals using their own visual theme and passwordless secure checkout links.
+
+The project originated as a dedicated booking engine for **BIBE Estética** and is currently transitioning and scaling into a generic multi-tenant SaaS.
 
 ---
 
-## 🚀 System Architecture & Surfaces
+## 🚀 Architecture and Tenant Isolation
 
-The application is structured around three well-defined operational areas:
+The platform is designed around a **Single Database, Shared Schema** model using a `business_id` discriminator column across all operational tables.
 
-1.  **Public Business Site (`/`):**
-    *   A modern landing page presenting the core treatment catalog organized by categories (Facial, Body, Hair Recovery, Lashes & Brows, Podiatry).
-    *   Interactive FAQs and integrated Call-to-Action (CTA) buttons linking to WhatsApp or directing users to the scheduling portal.
-    *   Includes a floating WhatsApp button with smooth hover micro-animations and mobile responsiveness.
-2.  **Client Booking Portal (`/app/*`):**
-    *   An intuitive 4-step booking wizard: **Category → Service → Compatible Professional → Live Available Slots**.
-    *   A personal appointment dashboard grouped into three tabs: *Pending* requests, *Confirmed* bookings, and past *History*.
-    *   Allows clients to cancel pending or active appointments by providing a mandatory cancellation reason.
-    *   Contact profile editing (Name and Phone) with client-side **Zod** validation, keeping the email address locked for session integrity.
-3.  **Administration Dashboard (`/admin/*`):**
-    *   **Operational Dashboard:** Real-time metrics of daily activity (Pending, Confirmed, and Completed appointments) linking directly to pre-filtered lists. Includes automatic configuration alerts (e.g., services without compatible professionals, professionals without working hours).
-    *   **Interactive Weekly Agenda:** A live weekly availability grid per professional/service allowing receptionists to book a confirmed appointment on a free slot with a single click. It supports assigning the appointment to an existing client or registering a new client from the booking form.
-    *   **Catalog Management (Full CRUD with Logical Deletion):**
-        *   *Services:* Customize durations (in minutes), pricing, and operational flags (e.g., requires evaluation, online-bookable).
-        *   *Categories:* Create and arrange categories. Prevent deactivation if they contain active services.
-        *   *Professionals:* Set service assignment mode (all services or a custom selection).
-        *   *Working Hours:* Weekly working blocks per professional.
-        *   *Agenda Blocks:* Exceptions to working hours (vacations, holidays) that automatically invalidate slots.
-    *   **Appointment Status Control:** Detailed modal to transition statuses with confirmation dialogs and mandatory reasons (Confirm, Reject, Cancel, Complete, No Show).
-    *   **Client Database:** Searchable customer directory with name/email filters and access to individual appointment history from a modal view.
+Incoming API requests are dynamically resolved and isolated through the following layers:
+1. **Frontend Routing:** All surfaces are nested under a dynamic slug prefix: `/n/:businessSlug` (e.g., `/n/bibe-estetica`). The frontend includes the custom `X-Business-Slug` header in HTTP requests to communicate the active tenant.
+2. **Tenant Filter ([TenantFilter](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantFilter.java)):** A servlet filter intercepts incoming HTTP requests, resolves the business by its slug header or session context, and sets the active tenant context.
+3. **Tenant Context ([TenantContext](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantContext.java)):** Uses `ThreadLocal` to store the active business during the request lifecycle. This ensures JPA repositories only fetch data belonging to the resolved tenant.
+
+---
+
+## 🎨 Surfaces per Tenant
+
+The application exposes three major areas scoped per tenant (`/n/:businessSlug`):
+
+1. **Public Landing Site (`/n/:businessSlug`):**
+   * Dynamic services catalog grouped by custom categories.
+   * Business information, FAQs, and WhatsApp buttons with micro-animations.
+   * Dynamic theme styling loaded at runtime based on the tenant's visual configuration (e.g., Aesthetic Pink, Health Blue, Premium Black).
+
+2. **Client Booking Portal (`/n/:businessSlug/app/*`):**
+   * Intuitive 4-step booking wizard: **Category → Service → Professional → Live Available Slots**.
+   * **Zero-Friction Checkout:** Customers can book slots without creating an account or typing a password. The system generates a silent guest record and returns a tokenized secure link with a public UUID (`public_uuid`) for viewing or canceling appointments.
+   * Personal client dashboard for registered users showing pending requests, confirmed bookings, and appointment history.
+
+3. **Administration Dashboard (`/n/:businessSlug/admin/*`):**
+   * **Operational Dashboard:** Real-time metrics of daily activity (pending, confirmed, and completed) and configuration alerts (e.g., professionals without schedules, services without assigned professionals).
+   * **Weekly Agenda Grid:** Interactive calendar showing availability per professional. Admins can schedule or confirm appointments on behalf of new or existing clients with a single click.
+   * **Catalog Management (CRUD with logical deletion):** Full control over services, categories, professionals, weekly working blocks, and agenda blocks (holidays, vacations).
+   * **Customer Database:** Searchable customer index with history modals.
+
+---
+
+## ⚡ Real-Time Availability Engine
+
+The core scheduling logic resolves slot availability dynamically:
+* **On-the-Fly Calculations:** Available slots are not stored in the database. Instead, they are calculated in real time by crossing the professional's weekly working hours, active agenda blocks (vacations), existing appointments (`PENDING` and `CONFIRMED` statuses), and the duration of the requested service.
+* **Collision Prevention:** The system blocks scheduling conflicts for the same professional and strictly enforces service compatibility checks.
+* **Data Integrity:** Services, categories, and professionals utilize logical deletion (`active = false`) to preserve past transactional booking data.
 
 ---
 
 ## 🛠️ Technology Stack
 
-### Backend (Appointment-Manager-API)
-- **Java 17/21** as the core programming language.
-- **Spring Boot 3.3.5** for backend framework infrastructure.
-- **Spring Security + JWT** for role-based authentication and authorization (`CLIENT` and `ADMIN` roles).
-- **Spring Data JPA + Hibernate** for database persistence and relational queries.
-- **PostgreSQL** as the primary production and local development database.
-- **H2 Database** in-memory for testing isolation.
-- **Flyway** for database migrations and schema version control.
-- **SpringDoc OpenAPI (Swagger)** for interactive API documentation.
+### Backend (Java/Spring Boot)
+* **Java 17/21** and **Spring Boot 3.3.5**.
+* **Spring Security & JWT** for role-based authentication (`CLIENT` and `ADMIN` roles).
+* **Spring Data JPA & Hibernate** for persistence and relational mapping.
+* **Flyway** for database migrations.
+* **PostgreSQL** as the primary production database.
+* **H2 Database** in-memory for unit and integration testing.
+* **SpringDoc OpenAPI (Swagger)** for API specification.
 
-### Frontend
-- **React 19** and **TypeScript** for components and typed logic.
-- **Vite** for fast bundling and development server.
-- **React Router 7** for SPA client-side routing and role-guarded routes.
-- **TanStack Query 5 (React Query)** for server state synchronization and caching.
-- **React Hook Form + Zod** for form handling and validation.
-- **Lucide React** for modern vector icons.
-- **Vanilla CSS (Custom CSS)** for responsive styles, complete dark mode base (with light mode toggle), and animations.
+### Frontend (React/Vite)
+* **React 19** and **TypeScript**.
+* **Vite** for fast bundling and hot module replacement.
+* **React Router 7** for dynamic and guarded client routing.
+* **TanStack Query 5 (React Query)** for server state synchronization and caching.
+* **React Hook Form & Zod** for robust client-side validation.
+* **Vanilla CSS (Custom CSS)** for lightweight, responsive styles, transitions, and dark/light modes.
 
 ---
 
-## ⚡ Core Business Rules Implemented
+## 📈 Future SaaS Roadmap & Strategy
 
--   **Route Protection:** Authenticated clients cannot access `/admin/*` routes. Admins cannot access the client-side booking wizard in `/app/*` (automatic role-based redirects).
--   **Appointment Life Cycle:**
-    -   Appointments requested by clients start as `PENDING`.
-    -   Appointments created by admins start directly as `CONFIRMED`.
-    -   Only `PENDING` and `CONFIRMED` statuses block availability.
-    -   Final statuses (`REJECTED`, `CANCELED_BY_CLIENT`, `CANCELED_BY_ADMIN`, `COMPLETED`, `NO_SHOW`) release the slot immediately.
--   **Dynamic Availability Calculation:** No empty slots are persisted. Free slots are calculated on-the-fly by crossing the professional's working hours, active blocks, existing appointments, and the duration of the requested service.
--   **Professional-Service Compatibility:** The frontend filters invalid combinations, and the backend strictly validates and returns a `409 Conflict` if an booking with an incompatible professional is attempted.
--   **Logical Deletion:** Deactivated entities are flagged as `active = false` instead of physically deleted to preserve financial and historical booking records.
-
----
-
-## 📁 Project Structure
-
-```text
-.
-├── backend
-│   └── Appointment-Manager-API
-│       ├── docs/                       # Technical specs and admin use cases
-│       ├── src/main/java/com/turnos/api/
-│       │   ├── auth/                   # JWT Authentication & Login
-│       │   ├── appointments/           # Domain, Services, and Appointment APIs
-│       │   ├── availability/           # Working Hours, Blocks, and Slots logic
-│       │   ├── professionals/          # Professionals and service assignment
-│       │   ├── services/               # Services & Categories CRUD
-│       │   ├── users/                  # Client users and profile
-│       │   └── config/                 # Security, CORS, and Filters
-│       └── pom.xml                     # Maven dependencies
-├── frontend
-│   ├── docs/                           # Product decisions and SaaS roadmap
-│   ├── src/
-│   │   ├── app/                        # Router, Providers, and Layouts
-│   │   ├── features/                   # Feature-based folders (Auth, Admin, Client)
-│   │   ├── shared/                     # Reusable components and hooks
-│   │   └── styles/                     # Custom stylesheet (global.css)
-│   └── package.json                    # Node.js scripts and packages
-└── README.md                           # Main documentation file
-```
+The system is architected to transition into a commercial subscription-based platform:
+* **Free Plan:**
+  * Limited to 1 active business/location.
+  * "Powered by TurnoFácil" branding visible on the booking checkout.
+* **Pro Plan:**
+  * Multi-business administration from a single user dashboard.
+  * White-label booking flow (hides platform branding).
+  * **Payment Integration (MercadoPago):** Tenants can input their API credentials to require full or partial deposits during the guest booking flow.
 
 ---
 
 ## ⚙️ Local Setup Guide
 
 ### Prerequisites
-- **Java 17 or 21** installed.
-- **Node.js** (v18 or higher).
-- **PostgreSQL** running with a database named `appointment_management`.
+* **Java 17 or 21** installed.
+* **Node.js** (v18 or higher).
+* **PostgreSQL** running locally with a database named `appointment_management`.
 
-### 1. Running the Backend
-1. Navigate to the backend folder:
+### 1. Run the Backend
+1. Navigate to the backend project:
    ```bash
    cd backend/Appointment-Manager-API
    ```
-2. Configure your database username and password in [application-dev.yml](file:///c:/Users/vale-/CodeProjects/Freelance/BIBE-estetica/backend/Appointment-Manager-API/src/main/resources/application-dev.yml) if they differ from the defaults.
-3. Run the development server specifying the `dev` profile (quoted arguments prevent PowerShell parsing errors):
+2. Configure database credentials in [application-dev.yml](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/resources/application-dev.yml) if they differ from the defaults.
+3. Start the application with the development profile active:
    ```bash
    .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
    ```
-4. The backend will start on `http://localhost:8080` and Swagger docs will be at [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html).
+The server will run on `http://localhost:8080` and Swagger docs will be at `http://localhost:8080/swagger-ui.html`. The default tenant (BIBE Estética, ID=1) will be seeded automatically.
 
-*Initial Admin Credentials (seeded automatically):*
-- **Username:** `admin@turnos.local`
-- **Password:** `admin1234`
+*Default Admin Credentials:*
+* **Username:** `admin@turnos.local`
+* **Password:** `admin1234`
 
-### 2. Running the Frontend
-1. Open a new terminal and navigate to the frontend folder:
+### 2. Run the Frontend
+1. Open a new terminal and navigate to the frontend directory:
    ```bash
    cd frontend
    ```
-2. Install the node packages:
+2. Install node dependencies:
    ```bash
    npm.cmd install
    ```
-3. Start the Vite development server:
+3. Start the Vite dev server:
    ```bash
    npm.cmd run dev
    ```
-4. The frontend will be accessible at [http://127.0.0.1:5173](http://127.0.0.1:5173).
+The application will be served at `http://localhost:5173`. To access the default tenant, visit `http://localhost:5173/n/bibe`.
 
 ---
 
 ## 🧪 Testing & Quality Assurance
-
--   **Backend Testing:** An automated test suite containing **84 integration and unit tests** validating status transitions, overlaps, and security filters. You can run it via `.\mvnw.cmd test`.
--   **Frontend E2E Testing:** Functional browser tests written in **Playwright and Python** (located inside the `testsprite_tests/` folder) to simulate complete booking, authentication, and administration flows.
-
----
-
-## 📈 Future SaaS Roadmap
-
-The system is designed to transition smoothly into a **Multi-tenant SaaS** product. A detailed roadmap is available in [roadmap-saas-local-turnos.md](file:///c:/Users/vale-/CodeProjects/Freelance/BIBE-estetica/frontend/docs/roadmap-saas-local-turnos.md) and highlights:
-1.  **Database Partitioning:** Adding a `Business` (tenant) entity and isolating data by filtering queries automatically based on Spring Security contexts.
-2.  **Zero-Friction Booking:** Allowing clients to schedule appointments by leaving minimal contact details (Phone/Name) without forcing password registrations.
-3.  **Dynamic Branding:** Letting tenants customize their portal with custom colors, logos, preset themes (e.g., Aesthetic Pink, Health Blue, Premium Black), and official WhatsApp links.
+* **Backend:** Contains a suite of **84 unit and integration tests** validating tenant security isolation, status workflows, and slot calculations. Execute using `.\mvnw.cmd test`.
+* **Frontend E2E:** Automated end-to-end tests written in **Playwright and Python** to simulate client bookings and admin operations.

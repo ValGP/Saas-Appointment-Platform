@@ -1,9 +1,11 @@
 package com.turnos.api.appointments;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record AppointmentResponse(
         Long id,
+        UUID publicUuid,
         Long clientId,
         String clientName,
         Long professionalId,
@@ -24,9 +26,10 @@ public record AppointmentResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    static AppointmentResponse from(Appointment appointment) {
+    public static AppointmentResponse from(Appointment appointment) {
         return new AppointmentResponse(
                 appointment.getId(),
+                appointment.getPublicUuid(),
                 appointment.getClient().getId(),
                 appointment.getClient().getFullName(),
                 appointment.getProfessional().getId(),

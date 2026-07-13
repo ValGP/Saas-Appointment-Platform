@@ -21,8 +21,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Objects;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "business_hours")
+@Filter(name = "tenantFilter", condition = "business_id = :businessId")
 public class BusinessHours {
 
     @Id

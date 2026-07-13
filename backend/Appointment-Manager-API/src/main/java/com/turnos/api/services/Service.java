@@ -17,10 +17,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @DynamicInsert
 @DynamicUpdate
 @Table(name = "services")
+@Filter(name = "tenantFilter", condition = "business_id = :businessId")
 public class Service {
 
     @Id

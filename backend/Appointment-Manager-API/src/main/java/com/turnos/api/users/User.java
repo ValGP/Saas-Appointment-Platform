@@ -16,8 +16,14 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+
 @Entity
 @Table(name = "app_users")
+@FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "businessId", type = Long.class))
+@Filter(name = "tenantFilter", condition = "business_id = :businessId")
 public class User {
 
     @Id

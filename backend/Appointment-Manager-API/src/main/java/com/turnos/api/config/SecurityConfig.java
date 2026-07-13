@@ -3,6 +3,7 @@ package com.turnos.api.config;
 import com.turnos.api.auth.AdminProperties;
 import com.turnos.api.auth.JwtAuthenticationFilter;
 import com.turnos.api.auth.JwtProperties;
+import com.turnos.api.business.TenantFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,10 +34,12 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final TenantFilter tenantFilter;
     private final CorsProperties corsProperties;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, CorsProperties corsProperties) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, TenantFilter tenantFilter, CorsProperties corsProperties) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.tenantFilter = tenantFilter;
         this.corsProperties = corsProperties;
     }
 
@@ -49,6 +52,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/auth/**",
+                                "/public/**",
+                                "/api/public/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
@@ -61,6 +66,7 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(tenantFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 
@@ -87,7 +93,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(corsProperties.allowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Business-Slug"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);

@@ -15,13 +15,13 @@
 
 
 ## Fase 2: Aislamiento, Seguridad y Endpoint Público en Backend
-- [ ] Modificar la configuración de seguridad y JWT para decodificar y validar el `businessId`
-- [ ] Implementar filtro Hibernate/JPA en repositorios para restringir consultas únicamente al `businessId` activo
-- [ ] Validar a nivel de controlador que los administradores de un negocio no tengan permisos sobre los recursos de otros negocios (HTTP 403 Forbidden)
-- [ ] Exponer endpoints públicos para obtener los datos de configuración pública del negocio (colores, marca, nombre, etc.) mediante el slug de la URL
-- [ ] Habilitar reserva anónima:
-  - [ ] Crear endpoint público `POST /api/public/appointments` para reservar turnos sin autenticación previa
-  - [ ] Implementar lógica para buscar/crear cliente silencioso en base al email recibido en la reserva y asociar el turno
+- [x] Modificar la configuración de seguridad y JWT para decodificar y validar el `businessId`
+- [x] Implementar filtro Hibernate/JPA en repositorios para restringir consultas únicamente al `businessId` activo
+- [x] Validar a nivel de controlador que los administradores de un negocio no tengan permisos sobre los recursos de otros negocios (HTTP 403 Forbidden)
+- [x] Exponer endpoints públicos para obtener los datos de configuración pública del negocio (colores, marca, nombre, etc.) mediante el slug de la URL
+- [x] Habilitar reserva anónima:
+  - [x] Crear endpoint público `POST /api/public/appointments` para reservar turnos sin autenticación previa
+  - [x] Implementar lógica para buscar/crear cliente silencioso en base al email recibido en la reserva y asociar el turno
 
 ## Fase 3: Enrutamiento Dinámico en Frontend
 - [ ] Actualizar `router.tsx` para anidar las superficies pública, de cliente y administración bajo la ruta dinámica `/n/:businessSlug`

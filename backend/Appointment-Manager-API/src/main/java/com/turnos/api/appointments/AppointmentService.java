@@ -92,6 +92,56 @@ public class AppointmentService {
         return AppointmentResponse.from(savedAppointment);
     }
 
+    @Transactional
+    public AppointmentResponse createPublicAppointment(PublicBookingRequest request) {
+        Business business = getActiveBusiness();
+
+        // 1. Resolve or create silent client user
+        String email = request.email().trim().toLowerCase();
+        User client = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    User newClient = new User(
+                            business,
+                            request.fullName().trim(),
+                            email,
+                            "$2a$10$unmatchableDummyHashForSilentUsersDoNotUseThisStringAsRealHash", 
+                            request.phone(),
+                            UserRole.CLIENT
+                    );
+                    return userRepository.save(newClient);
+                });
+
+        if (client.getRole() != UserRole.CLIENT) {
+            throw new ConflictException("User is registered with an admin/professional profile");
+        }
+
+        // 2. Load professional and service
+        Professional professional = getProfessional(request.professionalId());
+        com.turnos.api.services.Service service = getService(request.serviceId());
+        LocalDateTime endDateTime = service.calculateEndDateTime(request.startDateTime());
+
+        // 3. Validations
+        validateClient(client);
+        validateProfessional(professional);
+        if (!service.canBeBooked()) {
+            throw new ConflictException("Service must be active");
+        }
+        if (!service.canBeBookedOnline()) {
+            throw new ConflictException("Service is not available for online booking");
+        }
+        professionalServiceAssignmentService.ensureProfessionalProvidesService(professional.getId(), service.getId());
+        validateAvailability(professional.getId(), request.startDateTime(), endDateTime);
+
+        // 4. Create appointment
+        Appointment appointment = Appointment.createRequestedByClient(business, client, professional, service, request.startDateTime());
+        appointment.updateNotes(request.notes());
+
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+        notificationService.appointmentRequested(savedAppointment);
+
+        return AppointmentResponse.from(savedAppointment);
+    }
+
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> findAll(AppointmentSearchCriteria criteria, Pageable pageable, AuthenticatedUser authenticatedUser) {
         AppointmentSearchCriteria effectiveCriteria = criteria;
