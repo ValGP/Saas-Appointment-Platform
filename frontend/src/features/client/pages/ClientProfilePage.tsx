@@ -6,7 +6,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { ApiError } from "../../../shared/api/httpClient";
 import { updateCurrentUser } from "../../auth/api/authApi";
@@ -26,6 +26,7 @@ function getInitials(fullName?: string) {
 
 export function ClientProfilePage() {
   const { refreshUser, user } = useAuth();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [fullName, setFullName] = useState(user?.fullName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [editableFields, setEditableFields] = useState({
@@ -229,7 +230,7 @@ export function ClientProfilePage() {
               >
                 {saveMutation.isPending ? "Guardando..." : "Guardar cambios"}
               </button>
-              <Link className="client-secondary-link" to="/app/appointments">
+              <Link className="client-secondary-link" to={`/n/${businessSlug}/app/appointments`}>
                 Ver mis turnos
               </Link>
             </div>

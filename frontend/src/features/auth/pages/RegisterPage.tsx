@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../shared/api/httpClient";
 import { useAuth } from "../context/AuthProvider";
 
@@ -14,6 +14,7 @@ type RegisterFormValues = {
 export function RegisterPage() {
   const { registerClient } = useAuth();
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [error, setError] = useState<string | null>(null);
   const {
     formState: { errors, isSubmitting },
@@ -36,7 +37,7 @@ export function RegisterPage() {
         ...values,
         phone: values.phone.trim() || undefined,
       });
-      navigate("/app", { replace: true });
+      navigate(`/n/${businessSlug}/app`, { replace: true });
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -48,21 +49,18 @@ export function RegisterPage() {
 
   return (
     <section className="auth-card">
-      <p className="eyebrow">Cuenta cliente</p>
+      <p className="eyebrow">Registro de cliente</p>
       <h1>Crear cuenta</h1>
-      <p>El registro crea una cuenta de cliente y te deja logueado.</p>
+      <p>Registrate para poder agendar y gestionar tus turnos.</p>
 
       <form className="form-stack" onSubmit={handleSubmit(onSubmit)}>
         <label>
           Nombre completo
           <input
             autoComplete="name"
+            type="text"
             {...register("fullName", {
               required: "Ingresa tu nombre completo.",
-              maxLength: {
-                value: 120,
-                message: "El nombre no puede superar 120 caracteres.",
-              },
             })}
           />
           {errors.fullName ? (
@@ -90,10 +88,10 @@ export function RegisterPage() {
             autoComplete="new-password"
             type="password"
             {...register("password", {
-              required: "Ingresa un password.",
+              required: "Ingresa tu password.",
               minLength: {
                 value: 8,
-                message: "El password debe tener al menos 8 caracteres.",
+                message: "La contraseña debe tener al menos 8 caracteres.",
               },
             })}
           />
@@ -103,15 +101,11 @@ export function RegisterPage() {
         </label>
 
         <label>
-          Telefono
+          Telefono (opcional)
           <input
             autoComplete="tel"
-            {...register("phone", {
-              maxLength: {
-                value: 40,
-                message: "El telefono no puede superar 40 caracteres.",
-              },
-            })}
+            type="tel"
+            {...register("phone")}
           />
           {errors.phone ? (
             <span className="field-error">{errors.phone.message}</span>
@@ -126,7 +120,7 @@ export function RegisterPage() {
       </form>
 
       <p className="auth-footer">
-        Ya tenes cuenta? <Link to="/login">Ingresar</Link>
+        Ya tenes cuenta? <Link to={`/n/${businessSlug}/login`}>Ingresar</Link>
       </p>
     </section>
   );

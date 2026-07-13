@@ -1,6 +1,6 @@
 # Walkthrough: Conversión a SaaS Multi-Tenant
 
-Hemos completado exitosamente la **Fase 1** y la **Fase 2** del plan de conversión a SaaS multi-tenant. Todos los cambios compilan correctamente y la suite de pruebas del backend pasó con 100% de éxito.
+Hemos completado exitosamente la **Fase 1**, la **Fase 2** y la **Fase 3** del plan de conversión a SaaS multi-tenant. La suite de pruebas del backend pasa con 100% de éxito, y la aplicación frontend compila para producción perfectamente.
 
 ---
 
@@ -12,56 +12,51 @@ Hemos completado exitosamente la **Fase 1** y la **Fase 2** del plan de conversi
 ---
 
 ## Fase 2: Aislamiento, Seguridad y Endpoint Público en Backend (Completado)
+* **Resolución Automática del Inquilino (`TenantFilter`):** Añadido un filtro servlet que detecta el inquilino activo. Para endpoints protegidos, lo lee del JWT. Para endpoints públicos, lee el encabezado `X-Business-Slug` enviado por el cliente.
+* **Aislamiento a nivel de Base de Datos (`TenantAspect` + Hibernate `@Filter`):** Inyectadas restricciones automáticas en todas las consultas de la base de datos para impedir fugas de datos entre inquilinos.
+* **Reserva Anónima (Guest Checkout):** Endpoint `POST /api/public/appointments` para permitir reservas a invitados creando clientes silenciosos automáticamente y vinculando un código único `publicUuid` de seguimiento.
 
-### 1. Resolución y Aislamiento Dinámico de Inquilinos
-- **[NEW] [TenantFilter.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantFilter.java):** 
-  Filtro servlet que intercepta cada petición y resuelve el inquilino activo:
-  - **Peticiones Públicas:** Obtiene el slug a través del encabezado HTTP `X-Business-Slug` y busca el negocio correspondiente en la base de datos.
-  - **Peticiones Autenticadas:** Obtiene el `businessId` incrustado dentro del principal del usuario (`AuthenticatedUser`).
-  - Una vez resuelto, establece el negocio en `TenantContext` y al finalizar la petición lo limpia para evitar fugas de memoria.
-- **[NEW] [TenantAspect.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/TenantAspect.java):** 
-  Aspecto de Spring AOP que intercepta todas las ejecuciones de los repositorios Spring Data. Si existe un inquilino activo en `TenantContext`, activa dinámicamente el filtro de Hibernate `tenantFilter` en la sesión actual de la base de datos, inyectando el parámetro `businessId`.
-- **[MODIFY] Entidades Principales:** Se agregaron las anotaciones `@Filter` de Hibernate en cada entidad operativa (`User`, `Service`, `ServiceCategory`, `Professional`, `BusinessHours`, `AvailabilityBlock`, `Appointment`), forzando que todas las consultas SQL filtren por `business_id = :businessId` en segundo plano sin intervención manual del desarrollador.
+---
 
-### 2. Configuración de Seguridad y JWT
-- **[MODIFY] [JwtService.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/auth/JwtService.java):** 
-  Se añadió la propiedad `businessId` a los claims del Token JWT generado y se creó el método `extractBusinessId` para decodificarlo.
-- **[MODIFY] [SecurityConfig.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/config/SecurityConfig.java):**
-  - Registrado `TenantFilter` para ejecutarse inmediatamente después de `JwtAuthenticationFilter`.
-  - Excluidos del flujo de autenticación obligatoria los paths públicos de la API (`/public/**` y `/api/public/**`).
-  - Añadido el encabezado `X-Business-Slug` a los encabezados CORS permitidos para preflight requests.
+## Fase 3: Enrutamiento Dinámico en Frontend (Completado)
 
-### 3. Endpoints Públicos y Reserva Anónima
-- **[NEW] [PublicBusinessResponse.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/PublicBusinessResponse.java):** DTO que expone únicamente los campos configurables del negocio (nombre, colores, preset, branding, etc.).
-- **[NEW] [PublicBookingRequest.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/appointments/PublicBookingRequest.java):** DTO para recibir reservas de invitados (datos del turno + email, teléfono y nombre completo del cliente).
-- **[NEW] [PublicBusinessController.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/PublicBusinessController.java):**
-  Exposición de los endpoints públicos permitidos sin credenciales:
-  - `GET /api/public/businesses/{slug}` (Configuración de marca/visual)
-  - `GET /api/public/services` (Listado de servicios filtrados por tenant)
-  - `GET /api/public/service-categories` (Categorías de servicios filtradas por tenant)
-  - `GET /api/public/professionals` (Profesionales activos del tenant)
-  - `GET /api/public/availability` (Consulta de disponibilidad horaria)
-  - `POST /api/public/appointments` (Proceso de reserva anónima)
-- **[MODIFY] [AppointmentService.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/appointments/AppointmentService.java):** 
-  Implementación del método `createPublicAppointment` que busca un usuario por email en el negocio actual; si no existe, lo registra de forma "silenciosa" (como cliente, con una contraseña aleatoria de seguridad e inactiva para login) y procede a crear la reserva asignándole el `publicUuid`.
+### 1. Reestructuración de Rutas de Navegación
+- **[MODIFY] [router.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/router/router.tsx):** 
+  Se modificó la jerarquía de rutas para anidar las superficies de landing pública, portal de cliente y panel administrativo bajo el parámetro dinámico `/n/:businessSlug`. Se configuró una redirección automática desde la raíz `/` hacia `/n/bibe` para mantener retrocompatibilidad total con el negocio por defecto.
+- **[NEW] [BusinessProvider.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/providers/BusinessProvider.tsx) & [BusinessProviderWrapper.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/router/BusinessProviderWrapper.tsx):** 
+  Creado un proveedor de contexto que se monta en el límite de la ruta de React Router. Cuando el parámetro `:businessSlug` cambia:
+  1. Realiza una llamada al endpoint público del backend para cargar los datos de configuración del negocio activo (nombre, colores, preset de tema, whatsapp, etc.).
+  2. Inyecta dinámicamente la propiedad `primaryColor` del negocio en el elemento raíz HTML `:root` mediante variables CSS (`--primary-color`), personalizando los botones y elementos interactivos al instante.
+
+### 2. Inyección Automática de Encabezados HTTP
+- **[MODIFY] [httpClient.ts](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/shared/api/httpClient.ts):** 
+  Se modificó el cliente HTTP global `apiRequest` para inspeccionar `window.location.pathname`. Si la URL corresponde a un path de inquilino (ej. `/n/bibe/dashboard`), el cliente inyecta automáticamente el encabezado HTTP `X-Business-Slug: bibe` en todas las peticiones al backend de forma transparente.
+
+### 3. Habilitación del Wizard de Reserva Público (Guest Checkout)
+- **[MODIFY] [ClientBookPage.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/features/client/pages/ClientBookPage.tsx):**
+  Se adaptó el componente principal del asistente de reservas para aceptar la propiedad `isPublic?: boolean`.
+  - **Consultas Públicas:** Si se visualiza de forma pública (fuera del panel de login), el componente invoca los endpoints públicos correspondientes (`getPublicServices`, `getPublicProfessionals`, etc.).
+  - **Inputs de Invitado:** En el paso final de confirmación, despliega campos obligatorios para capturar el *Nombre*, *Email* y *Teléfono (opcional)* del cliente invitado.
+  - **Creación:** Llama al endpoint de creación pública (`createPublicAppointment`) y, al finalizar exitosamente, limpia el estado y redirige a la pantalla de éxito.
+- **[MODIFY] API Endpoints:** Se definieron y expusieron por separado los métodos públicos de consulta en los módulos de API (`servicesApi.ts`, `serviceCategoriesApi.ts`, `professionalsApi.ts`, `availabilityApi.ts`, `appointmentsApi.ts`) para evitar colisiones de tipos con las funciones internas autenticadas de React Query.
+
+### 4. Adaptación de Layouts y Páginas
+- Rediseñadas las llamadas de redirección, control de acceso de roles (`AuthGate.tsx` y `PublicOnlyRoute.tsx`) y los layouts de administración, cliente y público (`AdminLayout.tsx`, `ClientLayout.tsx`, `PublicLayout.tsx`) para preservar el slug en las URLs y evitar redirecciones a paths globales absolutos.
+- **[MODIFY] [ClientBookingSuccessPage.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/features/client/pages/ClientBookingSuccessPage.tsx):** Adaptado el diseño para ocultar la opción de "Ver mis turnos" a usuarios invitados no autenticados y ajustar el texto de ayuda.
 
 ---
 
 ## Verificación y Resultados de Pruebas
 
-### 1. Pruebas de Integración de Endpoints Públicos
-- **[NEW] [PublicBusinessControllerTest.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/test/java/com/turnos/api/business/PublicBusinessControllerTest.java):** 
-  Creado suite de test unitarios/integración en Spring Boot para validar que:
-  - Se puede obtener la configuración pública por el slug.
-  - Se puede realizar una reserva pública e invitados de manera exitosa, creando el usuario silencioso de forma transparente y retornando el token `publicUuid` en la respuesta.
+### 1. Compilación de Producción del Frontend
+Se ejecutó el build de producción del Frontend utilizando TypeScript y Vite:
+```bash
+cmd.exe /c npm run build
+```
+Resultado: **BUILD SUCCESS** (Compilación limpia sin errores de tipos, sintaxis o importaciones en el código adaptado).
 
-### 2. Ejecución Completa de Pruebas
-Ejecutada la suite completa de tests del backend:
+### 2. Ejecución Completa de Pruebas en Backend
 ```bash
 .\mvnw.cmd test
 ```
-Resultado: **BUILD SUCCESS**
-- **Tests ejecutados:** 86 (84 originales + 2 de la nueva superficie pública)
-- **Fallos:** 0
-- **Errores:** 0
-- **Omitidos:** 0
+Resultado: **BUILD SUCCESS** (86/86 pruebas pasadas).

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../shared/api/httpClient";
 import { useAuth } from "../context/AuthProvider";
 
@@ -13,6 +13,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [error, setError] = useState<string | null>(null);
   const {
     formState: { errors, isSubmitting },
@@ -32,7 +33,7 @@ export function LoginPage() {
       const user = await login(values);
       const from = location.state?.from?.pathname as string | undefined;
 
-      navigate(from ?? (user.role === "ADMIN" ? "/admin" : "/app"), {
+      navigate(from ?? (user.role === "ADMIN" ? `/n/${businessSlug}/admin` : `/n/${businessSlug}/app`), {
         replace: true,
       });
     } catch (err) {
@@ -87,7 +88,7 @@ export function LoginPage() {
       </form>
 
       <p className="auth-footer">
-        No tenes cuenta? <Link to="/register">Registrarse</Link>
+        No tenes cuenta? <Link to={`/n/${businessSlug}/register`}>Registrarse</Link>
       </p>
     </section>
   );

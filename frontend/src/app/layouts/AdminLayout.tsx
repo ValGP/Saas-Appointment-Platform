@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import { useTheme } from "../providers/ThemeProvider";
 import { AdminConfirmDialog } from "../../features/admin/components/AdminConfirmDialog";
 import { useAuth } from "../../features/auth/context/AuthProvider";
@@ -34,13 +34,20 @@ const adminLinks = [
 export function AdminLayout() {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const location = useLocation();
   const isDark = theme === "dark";
+
+  const resolvedLinks = adminLinks.map((link) => ({
+    ...link,
+    to: link.to.replace("/admin", `/n/${businessSlug}/admin`),
+  }));
+
   const currentLink =
-    adminLinks.find((link) => location.pathname.startsWith(link.to)) ??
-    adminLinks[0];
+    resolvedLinks.find((link) => location.pathname.startsWith(link.to)) ??
+    resolvedLinks[0];
 
   return (
     <div className={`admin-shell admin-theme-${theme}`}>
@@ -48,7 +55,7 @@ export function AdminLayout() {
         <div className="admin-sidebar-top">
           <NavLink
             className="admin-brand"
-            to="/admin"
+            to={`/n/${businessSlug}/admin`}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <span className="admin-brand-mark">B</span>
@@ -81,7 +88,7 @@ export function AdminLayout() {
           className={`admin-nav ${isMobileMenuOpen ? "is-open" : ""}`}
           aria-label="Navegacion administrativa"
         >
-          {adminLinks.map((link) => {
+          {resolvedLinks.map((link) => {
             const Icon = link.icon;
 
             return (

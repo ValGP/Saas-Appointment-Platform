@@ -9,7 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../../shared/api/httpClient";
 import {
@@ -72,6 +72,7 @@ function canClientCancel(appointment: Appointment) {
 }
 
 export function ClientAppointmentsPage() {
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const queryClient = useQueryClient();
   const [showHistory, setShowHistory] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
@@ -183,7 +184,7 @@ export function ClientAppointmentsPage() {
             historial cuando vayan cerrando.
           </p>
         </div>
-        <Link className="client-primary-link" to="/app/book">
+        <Link className="client-primary-link" to={`/n/${businessSlug}/app/book`}>
           Pedir otro turno
           <CalendarClock aria-hidden="true" size={18} />
         </Link>
@@ -216,7 +217,7 @@ export function ClientAppointmentsPage() {
         <div className="client-empty-state">
           <strong>Todavia no solicitaste turnos.</strong>
           <p>Cuando pidas uno, va a aparecer aca con su estado.</p>
-          <Link className="client-inline-link" to="/app/book">
+          <Link className="client-inline-link" to={`/n/${businessSlug}/app/book`}>
             Pedir mi primer turno
           </Link>
         </div>
@@ -235,7 +236,7 @@ export function ClientAppointmentsPage() {
           ) : (
             <div className="client-no-upcoming">
               <p className="client-muted-text">No tenes turnos proximos programados.</p>
-              <Link className="client-inline-link" to="/app/book">
+              <Link className="client-inline-link" to={`/n/${businessSlug}/app/book`}>
                 Pedir un turno
               </Link>
             </div>

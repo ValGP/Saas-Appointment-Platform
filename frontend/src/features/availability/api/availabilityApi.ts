@@ -20,3 +20,13 @@ export function getAvailability(params: AvailabilitySearchParams) {
 
   return apiRequest<AvailabilitySlot[]>(`/api/availability?${searchParams}`);
 }
+
+export function getPublicAvailability(params: AvailabilitySearchParams) {
+  const searchParams = new URLSearchParams({
+    professionalId: String(params.professionalId),
+    serviceId: String(params.serviceId),
+    date: params.date,
+  });
+
+  return apiRequest<AvailabilitySlot[]>(`/api/public/availability?${searchParams}`);
+}

@@ -1,10 +1,11 @@
 import { CalendarCheck, Clock, LogOut, Menu, UserRound, X } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useParams } from "react-router-dom";
 import { useAuth } from "../../features/auth/context/AuthProvider";
 
 export function ClientLayout() {
   const { logout, user } = useAuth();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const initials =
     user?.fullName
@@ -27,7 +28,7 @@ export function ClientLayout() {
       ) : null}
 
       <header className="client-header">
-        <NavLink className="client-brand" to="/app/book" aria-label="BIBE cliente">
+        <NavLink className="client-brand" to={`/n/${businessSlug}/app/book`} aria-label="Cliente">
           <span className="brand-logo">
             <img alt="" src="/icon/blanco.png" />
           </span>
@@ -37,15 +38,15 @@ export function ClientLayout() {
           className={`client-nav ${isMenuOpen ? "is-open" : ""}`}
           aria-label="Navegacion de cliente"
         >
-          <NavLink to="/app/book" onClick={() => setIsMenuOpen(false)}>
+          <NavLink to={`/n/${businessSlug}/app/book`} onClick={() => setIsMenuOpen(false)}>
             <CalendarCheck aria-hidden="true" size={18} />
             Pedir turno
           </NavLink>
-          <NavLink to="/app/appointments" onClick={() => setIsMenuOpen(false)}>
+          <NavLink to={`/n/${businessSlug}/app/appointments`} onClick={() => setIsMenuOpen(false)}>
             <Clock aria-hidden="true" size={18} />
             Mis turnos
           </NavLink>
-          <NavLink to="/app/profile" onClick={() => setIsMenuOpen(false)}>
+          <NavLink to={`/n/${businessSlug}/app/profile`} onClick={() => setIsMenuOpen(false)}>
             <UserRound aria-hidden="true" size={18} />
             Perfil
           </NavLink>

@@ -20,6 +20,10 @@ export function getServiceCategories() {
   return apiRequest<ServiceCategory[]>("/api/service-categories");
 }
 
+export function getPublicServiceCategories() {
+  return apiRequest<ServiceCategory[]>("/api/public/service-categories");
+}
+
 export function createServiceCategory(payload: ServiceCategoryPayload) {
   return apiRequest<ServiceCategory>("/api/service-categories", {
     method: "POST",

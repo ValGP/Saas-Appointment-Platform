@@ -24,11 +24,11 @@
   - [x] Implementar lógica para buscar/crear cliente silencioso en base al email recibido en la reserva y asociar el turno
 
 ## Fase 3: Enrutamiento Dinámico en Frontend
-- [ ] Actualizar `router.tsx` para anidar las superficies pública, de cliente y administración bajo la ruta dinámica `/n/:businessSlug`
-- [ ] Crear hook `useActiveBusiness` para resolver la información del negocio en base al slug de la URL
-- [ ] Inyectar el slug en las cabeceras de llamadas al backend (API requests)
-- [ ] Adaptar layouts de cliente, admin y público para soportar los accesos basados en slug
-- [ ] Adaptar flujo de reservas para solicitar los datos del cliente invitado en el último paso si no está autenticado
+- [x] Actualizar `router.tsx` para anidar las superficies pública, de cliente y administración bajo la ruta dinámica `/n/:businessSlug`
+- [x] Crear hook `useActiveBusiness` para resolver la información del negocio en base al slug de la URL
+- [x] Inyectar el slug en las cabeceras de llamadas al backend (API requests)
+- [x] Adaptar layouts de cliente, admin y público para soportar los accesos basados en slug
+- [x] Adaptar flujo de reservas para solicitar los datos del cliente invitado en el último paso si no está autenticado
 
 ## Fase 4: Personalización Visual y Temas Dinámicos
 - [ ] Modificar `ThemeProvider.tsx` para inyectar variables CSS personalizadas (colores institucionales) leídas dinámicamente desde el backend

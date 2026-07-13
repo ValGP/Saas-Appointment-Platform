@@ -69,6 +69,25 @@ export function getServices(params: ServiceSearchParams = {}) {
   return apiRequest<ServiceCatalogItem[]>(`/api/services${query ? `?${query}` : ""}`);
 }
 
+export function getPublicServices(params: ServiceSearchParams = {}) {
+  const searchParams = new URLSearchParams();
+
+  if (params.categoryId !== undefined) {
+    searchParams.set("categoryId", String(params.categoryId));
+  }
+
+  if (params.professionalId !== undefined) {
+    searchParams.set("professionalId", String(params.professionalId));
+  }
+
+  if (params.onlineBookableOnly !== undefined) {
+    searchParams.set("onlineBookableOnly", String(params.onlineBookableOnly));
+  }
+
+  const query = searchParams.toString();
+  return apiRequest<ServiceCatalogItem[]>(`/api/public/services${query ? `?${query}` : ""}`);
+}
+
 export function createService(payload: ServicePayload) {
   return apiRequest<ServiceCatalogItem>("/api/services", {
     method: "POST",

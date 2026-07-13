@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../shared/api/httpClient";
 import {
   addDays,
@@ -20,22 +20,27 @@ import {
 } from "../../../shared/utils/date";
 import {
   createAppointment,
+  createPublicAppointment,
   type AppointmentPayload,
 } from "../../appointments/api/appointmentsApi";
 import {
   getAvailability,
+  getPublicAvailability,
   type AvailabilitySlot,
 } from "../../availability/api/availabilityApi";
 import {
   getProfessionals,
+  getPublicProfessionals,
   type Professional,
 } from "../../professionals/api/professionalsApi";
 import {
   getServiceCategories,
+  getPublicServiceCategories,
   type ServiceCategory,
 } from "../../services/api/serviceCategoriesApi";
 import {
   getServices,
+  getPublicServices,
   type ServiceCatalogItem,
 } from "../../services/api/servicesApi";
 
@@ -109,8 +114,9 @@ function getCreateErrorMessage(error: unknown) {
   return error.message || "No pudimos solicitar el turno. Proba nuevamente.";
 }
 
-export function ClientBookPage() {
+export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const queryClient = useQueryClient();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
@@ -124,24 +130,32 @@ export function ClientBookPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [notes, setNotes] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const categoriesQuery = useQuery({
-    queryKey: ["client-service-categories"],
-    queryFn: getServiceCategories,
+    queryKey: ["client-service-categories", isPublic],
+    queryFn: () => isPublic ? getPublicServiceCategories() : getServiceCategories(),
   });
 
   const servicesQuery = useQuery({
-    queryKey: ["client-services", selectedCategoryId],
+    queryKey: ["client-services", selectedCategoryId, isPublic],
     enabled: selectedCategoryId !== null,
     queryFn: () =>
-      getServices({ categoryId: selectedCategoryId!, onlineBookableOnly: true }),
+      isPublic
+        ? getPublicServices({ categoryId: selectedCategoryId!, onlineBookableOnly: true })
+        : getServices({ categoryId: selectedCategoryId!, onlineBookableOnly: true }),
   });
 
   const professionalsQuery = useQuery({
-    queryKey: ["client-professionals", selectedServiceId],
+    queryKey: ["client-professionals", selectedServiceId, isPublic],
     enabled: selectedServiceId !== null,
-    queryFn: () => getProfessionals({ serviceId: selectedServiceId!, hasAvailability: true }),
+    queryFn: () =>
+      isPublic
+        ? getPublicProfessionals({ serviceId: selectedServiceId!, hasAvailability: true })
+        : getProfessionals({ serviceId: selectedServiceId!, hasAvailability: true }),
   });
 
   const activeServices = useMemo(
@@ -219,14 +233,21 @@ export function ClientBookPage() {
         selectedProfessionalId,
         selectedServiceId,
         day.dateKey,
+        isPublic,
       ],
       enabled: selectedProfessionalId !== null && selectedServiceId !== null,
       queryFn: () =>
-        getAvailability({
-          professionalId: selectedProfessionalId!,
-          serviceId: selectedServiceId!,
-          date: day.dateKey,
-        }),
+        isPublic
+          ? getPublicAvailability({
+              professionalId: selectedProfessionalId!,
+              serviceId: selectedServiceId!,
+              date: day.dateKey,
+            })
+          : getAvailability({
+              professionalId: selectedProfessionalId!,
+              serviceId: selectedServiceId!,
+              date: day.dateKey,
+            }),
     })),
   });
 
@@ -274,16 +295,22 @@ export function ClientBookPage() {
   ]);
 
   const createMutation = useMutation({
-    mutationFn: (payload: AppointmentPayload) => createAppointment(payload),
+    mutationFn: (payload: any) =>
+      isPublic
+        ? createPublicAppointment(payload)
+        : createAppointment(payload),
     onSuccess: async (appointment) => {
       setFormError(null);
       setNotes("");
+      setGuestName("");
+      setGuestEmail("");
+      setGuestPhone("");
       setSelectedSlot(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["client-availability"] }),
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
       ]);
-      navigate("/app/book/success", { state: { appointment } });
+      navigate(isPublic ? `/n/${businessSlug}/book/success` : `/n/${businessSlug}/app/book/success`, { state: { appointment } });
     },
     onError: (error) => {
       setFormError(getCreateErrorMessage(error));
@@ -296,12 +323,29 @@ export function ClientBookPage() {
     }
 
     setFormError(null);
-    createMutation.mutate({
-      professionalId: selectedProfessional.id,
-      serviceId: selectedService.id,
-      startDateTime: selectedSlot.startDateTime,
-      notes: notes.trim() || undefined,
-    });
+
+    if (isPublic) {
+      if (!guestName.trim() || !guestEmail.trim()) {
+        setFormError("Por favor ingresa tu nombre y email.");
+        return;
+      }
+      createMutation.mutate({
+        professionalId: selectedProfessional.id,
+        serviceId: selectedService.id,
+        startDateTime: selectedSlot.startDateTime,
+        clientName: guestName.trim(),
+        clientEmail: guestEmail.trim(),
+        clientPhone: guestPhone.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+    } else {
+      createMutation.mutate({
+        professionalId: selectedProfessional.id,
+        serviceId: selectedService.id,
+        startDateTime: selectedSlot.startDateTime,
+        notes: notes.trim() || undefined,
+      });
+    }
   }
 
   function handleSelectSlot(slot: AvailabilitySlot) {
@@ -699,6 +743,43 @@ export function ClientBookPage() {
                 <dd>{formatSlotSummary(selectedSlot)}</dd>
               </div>
             </dl>
+
+            {isPublic ? (
+              <div className="guest-contact-fields" style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px", textAlign: "left" }}>
+                <label className="client-field">
+                  <span style={{ fontWeight: 500, fontSize: "14px", display: "block", marginBottom: "4px" }}>Nombre completo *</span>
+                  <input
+                    type="text"
+                    required
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border-color, #ccc)", borderRadius: "6px", background: "var(--background-color, #fff)", color: "inherit" }}
+                    placeholder="Tu nombre y apellido"
+                  />
+                </label>
+                <label className="client-field">
+                  <span style={{ fontWeight: 500, fontSize: "14px", display: "block", marginBottom: "4px" }}>Email *</span>
+                  <input
+                    type="email"
+                    required
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border-color, #ccc)", borderRadius: "6px", background: "var(--background-color, #fff)", color: "inherit" }}
+                    placeholder="ejemplo@correo.com"
+                  />
+                </label>
+                <label className="client-field">
+                  <span style={{ fontWeight: 500, fontSize: "14px", display: "block", marginBottom: "4px" }}>Teléfono (opcional)</span>
+                  <input
+                    type="tel"
+                    value={guestPhone}
+                    onChange={(e) => setGuestPhone(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border-color, #ccc)", borderRadius: "6px", background: "var(--background-color, #fff)", color: "inherit" }}
+                    placeholder="Código de área + número"
+                  />
+                </label>
+              </div>
+            ) : null}
 
             <label className="client-notes-field">
               <span>Notas para BIBE (opcional)</span>

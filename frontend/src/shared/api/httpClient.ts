@@ -31,6 +31,11 @@ export async function apiRequest<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
+  const slugMatch = window.location.pathname.match(/^\/n\/([^/]+)/);
+  if (slugMatch && slugMatch[1]) {
+    headers.set("X-Business-Slug", slugMatch[1]);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,

@@ -11,7 +11,7 @@ import {
   UserRoundCheck,
   WandSparkles,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { PublicFooter } from "../components/PublicFooter";
 import { treatmentCategories } from "../data/treatmentContent";
 
@@ -65,6 +65,7 @@ const testimonials = [
 ];
 
 export function HomePage() {
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   return (
     <div className="public-landing">
       <section className="public-hero" id="inicio">
@@ -88,11 +89,11 @@ export function HomePage() {
           </p>
 
           <div className="public-hero-actions">
-            <a className="public-primary-button" href="#contacto">
+            <Link className="public-primary-button" to={`/n/${businessSlug}/book`}>
               <MessageCircle aria-hidden="true" size={18} />
               Reservar turno
               <ArrowRight aria-hidden="true" size={18} />
-            </a>
+            </Link>
             <a className="public-ghost-button" href="#tratamientos">
               Ver tratamientos
               <Sparkles aria-hidden="true" size={18} />
@@ -243,7 +244,7 @@ export function HomePage() {
             <MessageCircle aria-hidden="true" size={18} />
             Contactar por WhatsApp
           </a>
-          <Link className="public-ghost-button" to="/login">
+          <Link className="public-ghost-button" to={`/n/${businessSlug}/login`}>
             Ingresar al portal
           </Link>
         </div>

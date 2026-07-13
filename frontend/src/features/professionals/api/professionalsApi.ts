@@ -50,6 +50,20 @@ export function getProfessionals(params: ProfessionalSearchParams = {}) {
   return apiRequest<Professional[]>(`/api/professionals${query ? `?${query}` : ""}`);
 }
 
+export function getPublicProfessionals(params: ProfessionalSearchParams = {}) {
+  const searchParams = new URLSearchParams();
+
+  if (params.serviceId !== undefined) {
+    searchParams.set("serviceId", String(params.serviceId));
+  }
+  if (params.hasAvailability !== undefined) {
+    searchParams.set("hasAvailability", String(params.hasAvailability));
+  }
+
+  const query = searchParams.toString();
+  return apiRequest<Professional[]>(`/api/public/professionals${query ? `?${query}` : ""}`);
+}
+
 export function createProfessional(payload: ProfessionalPayload) {
   return apiRequest<Professional>("/api/professionals", {
     method: "POST",

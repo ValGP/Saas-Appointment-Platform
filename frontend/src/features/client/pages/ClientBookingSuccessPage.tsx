@@ -5,9 +5,10 @@ import {
   Clock,
   UserRoundCheck,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { type Appointment } from "../../appointments/api/appointmentsApi";
 import { formatShortDateTime, formatTime } from "../../../shared/utils/date";
+import { useAuth } from "../../auth/context/AuthProvider";
 
 type BookingSuccessState = {
   appointment?: Appointment;
@@ -15,7 +16,11 @@ type BookingSuccessState = {
 
 export function ClientBookingSuccessPage() {
   const location = useLocation();
+  const { user } = useAuth();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const appointment = (location.state as BookingSuccessState | null)?.appointment;
+  const isGuest = !user;
+  const bookPath = isGuest ? `/n/${businessSlug}` : `/n/${businessSlug}/app/book`;
 
   if (!appointment) {
     return (
@@ -27,14 +32,18 @@ export function ClientBookingSuccessPage() {
           <p className="public-pill">Solicitud de turno</p>
           <h1>No encontramos una solicitud reciente.</h1>
           <p>
-            Si ya pediste un turno, podes revisarlo desde `Mis turnos`. Tambien
-            podes iniciar una nueva solicitud.
+            {isGuest 
+              ? "Si ya pediste un turno, revisa tu casilla de correo electrónico donde te enviamos los detalles." 
+              : "Si ya pediste un turno, podes revisarlo desde `Mis turnos`. Tambien podes iniciar una nueva solicitud."
+            }
           </p>
           <div className="client-result-actions">
-            <Link className="client-primary-link" to="/app/appointments">
-              Ver mis turnos
-            </Link>
-            <Link className="client-secondary-link" to="/app/book">
+            {!isGuest && (
+              <Link className="client-primary-link" to={`/n/${businessSlug}/app/appointments`}>
+                Ver mis turnos
+              </Link>
+            )}
+            <Link className="client-secondary-link" to={bookPath}>
               Solicitar otro turno
             </Link>
           </div>
@@ -52,8 +61,10 @@ export function ClientBookingSuccessPage() {
         <p className="public-pill">Solicitud enviada</p>
         <h1>Tu turno fue enviado a confirmar.</h1>
         <p>
-          BIBE va a revisar la solicitud y confirmar el horario. Mientras tanto,
-          podes seguir el estado desde `Mis turnos`.
+          {isGuest 
+            ? "El negocio va a revisar tu solicitud y confirmar el horario. Te enviamos un correo electrónico de confirmación con los detalles." 
+            : "BIBE va a revisar la solicitud y confirmar el horario. Mientras tanto, podes seguir el estado desde `Mis turnos`."
+          }
         </p>
 
         <div className="client-result-summary">
@@ -83,10 +94,12 @@ export function ClientBookingSuccessPage() {
         </div>
 
         <div className="client-result-actions">
-          <Link className="client-primary-link" to="/app/appointments">
-            Ver mis turnos
-          </Link>
-          <Link className="client-secondary-link" to="/app/book">
+          {!isGuest && (
+            <Link className="client-primary-link" to={`/n/${businessSlug}/app/appointments`}>
+              Ver mis turnos
+            </Link>
+          )}
+          <Link className="client-secondary-link" to={bookPath}>
             Solicitar otro turno
           </Link>
         </div>

@@ -26,11 +26,11 @@ const iconBySlug = {
 };
 
 export function TreatmentCategoryPage() {
-  const { slug } = useParams();
+  const { businessSlug, slug } = useParams<{ businessSlug: string; slug: string }>();
   const category = getTreatmentCategory(slug);
 
   if (!category) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={`/n/${businessSlug}`} replace />;
   }
 
   const Icon = iconBySlug[category.slug as keyof typeof iconBySlug] ?? HeartPulse;
@@ -39,7 +39,7 @@ export function TreatmentCategoryPage() {
     <div className="treatment-page">
       <section className="treatment-hero">
         <div className="treatment-hero-copy">
-          <Link className="treatment-back-link" to="/#tratamientos">
+          <Link className="treatment-back-link" to={`/n/${businessSlug}#tratamientos`}>
             <ArrowLeft aria-hidden="true" size={16} />
             Tratamientos
           </Link>
@@ -155,7 +155,7 @@ export function TreatmentCategoryPage() {
             <MessageCircle aria-hidden="true" size={18} />
             Contactar por WhatsApp
           </a>
-          <Link className="public-ghost-button" to="/register">
+          <Link className="public-ghost-button" to={`/n/${businessSlug}/register`}>
             Reservar turno
           </Link>
         </div>

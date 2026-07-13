@@ -1,16 +1,17 @@
 import { Menu, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import { treatmentCategories } from "../../features/public-site/data/treatmentContent";
 
 export function PublicLayout() {
   const location = useLocation();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const headerRef = useRef<HTMLElement>(null);
   const treatmentsMenuRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTreatmentsOpen, setIsTreatmentsOpen] = useState(false);
-  const isInternalPublicPage = location.pathname !== "/";
+  const isInternalPublicPage = location.pathname !== `/n/${businessSlug}`;
 
   function closeMenus() {
     setIsMobileMenuOpen(false);
@@ -79,7 +80,7 @@ export function PublicLayout() {
           isScrolled || isInternalPublicPage ? "is-scrolled" : ""
         }`}
       >
-        <NavLink className="brand" to="/" aria-label="Inicio BIBE" onClick={closeMenus}>
+        <NavLink className="brand" to={`/n/${businessSlug}`} aria-label="Inicio" onClick={closeMenus}>
           <span className="brand-logo">
             <img alt="" src="/icon/blanco.png" />
           </span>
@@ -112,7 +113,7 @@ export function PublicLayout() {
           className={`nav-links ${isMobileMenuOpen ? "is-open" : ""}`}
           aria-label="Navegacion publica"
         >
-          <a href="/#inicio" onClick={closeMenus}>
+          <a href={`/n/${businessSlug}#inicio`} onClick={closeMenus}>
             Inicio
           </a>
           <div
@@ -147,7 +148,7 @@ export function PublicLayout() {
             <div className="public-nav-dropdown">
               {treatmentCategories.map((category) => (
                 <Link
-                  to={`/tratamientos/${category.slug}`}
+                  to={`/n/${businessSlug}/tratamientos/${category.slug}`}
                   key={category.slug}
                   onClick={() => {
                     setIsMobileMenuOpen(false);
@@ -159,13 +160,13 @@ export function PublicLayout() {
               ))}
             </div>
           </div>
-          <a href="/#contacto" onClick={closeMenus}>
+          <a href={`/n/${businessSlug}#contacto`} onClick={closeMenus}>
             Contacto
           </a>
-          <NavLink to="/login" onClick={closeMenus}>
+          <NavLink to={`/n/${businessSlug}/login`} onClick={closeMenus}>
             Ingresar
           </NavLink>
-          <NavLink className="public-nav-cta" to="/register" onClick={closeMenus}>
+          <NavLink className="public-nav-cta" to={`/n/${businessSlug}/book`} onClick={closeMenus}>
             <Sparkles aria-hidden="true" size={16} />
             Agendar
           </NavLink>
@@ -192,4 +193,3 @@ export function PublicLayout() {
     </div>
   );
 }
-

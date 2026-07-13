@@ -125,3 +125,21 @@ export function markAppointmentNoShow(id: number) {
     method: "PATCH",
   });
 }
+
+export type PublicBookingPayload = {
+  serviceId: number;
+  professionalId: number;
+  startDateTime: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  notes?: string;
+};
+
+export function createPublicAppointment(payload: PublicBookingPayload) {
+  return apiRequest<Appointment>("/api/public/appointments", {
+    method: "POST",
+    body: payload,
+  });
+}
+

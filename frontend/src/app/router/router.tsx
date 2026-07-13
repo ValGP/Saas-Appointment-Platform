@@ -21,69 +21,67 @@ import { RegisterPage } from "../../features/auth/pages/RegisterPage";
 import { HomePage } from "../../features/public-site/pages/HomePage";
 import { TreatmentCategoryPage } from "../../features/public-site/pages/TreatmentCategoryPage";
 import { NotFoundPage } from "../../shared/components/NotFoundPage";
+import { BusinessProviderWrapper } from "./BusinessProviderWrapper";
 
 export const router = createBrowserRouter([
   {
-    element: <PublicLayout />,
-    children: [
-      { path: "/", element: <HomePage /> },
-      { path: "/tratamientos/:slug", element: <TreatmentCategoryPage /> },
-      {
-        element: <PublicOnlyRoute />,
-        children: [
-          { path: "/login", element: <LoginPage /> },
-          { path: "/register", element: <RegisterPage /> },
-        ],
-      },
-    ],
+    path: "/",
+    element: <Navigate to="/n/bibe" replace />,
   },
   {
-    element: <AuthGate allow="CLIENT" />,
+    path: "/n/:businessSlug",
+    element: <BusinessProviderWrapper />,
     children: [
       {
-        path: "/app",
-        element: <ClientLayout />,
+        element: <PublicLayout />,
         children: [
-          { index: true, element: <Navigate to="/app/book" replace /> },
-          { path: "book", element: <ClientBookPage /> },
+          { index: true, element: <HomePage /> },
+          { path: "tratamientos/:slug", element: <TreatmentCategoryPage /> },
+          { path: "book", element: <ClientBookPage isPublic={true} /> },
           { path: "book/success", element: <ClientBookingSuccessPage /> },
-          { path: "appointments", element: <ClientAppointmentsPage /> },
-          { path: "profile", element: <ClientProfilePage /> },
+          {
+            element: <PublicOnlyRoute />,
+            children: [
+              { path: "login", element: <LoginPage /> },
+              { path: "register", element: <RegisterPage /> },
+            ],
+          },
         ],
       },
-    ],
-  },
-  {
-    element: <AuthGate allow="ADMIN" />,
-    children: [
       {
-        path: "/admin",
-        element: <AdminLayout />,
+        element: <AuthGate allow="CLIENT" />,
         children: [
-          { index: true, element: <Navigate to="/admin/dashboard" replace /> },
-          { path: "dashboard", element: <AdminDashboardPage /> },
           {
-            path: "appointments",
-            element: <AdminAppointmentsPage />,
+            path: "app",
+            element: <ClientLayout />,
+            children: [
+              { index: true, element: <Navigate to="book" replace /> },
+              { path: "book", element: <ClientBookPage /> },
+              { path: "book/success", element: <ClientBookingSuccessPage /> },
+              { path: "appointments", element: <ClientAppointmentsPage /> },
+              { path: "profile", element: <ClientProfilePage /> },
+            ],
           },
-          { path: "calendar", element: <AdminCalendarPage /> },
+        ],
+      },
+      {
+        element: <AuthGate allow="ADMIN" />,
+        children: [
           {
-            path: "services",
-            element: <AdminServicesPage />,
+            path: "admin",
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <Navigate to="dashboard" replace /> },
+              { path: "dashboard", element: <AdminDashboardPage /> },
+              { path: "appointments", element: <AdminAppointmentsPage /> },
+              { path: "calendar", element: <AdminCalendarPage /> },
+              { path: "services", element: <AdminServicesPage /> },
+              { path: "professionals", element: <AdminProfessionalsPage /> },
+              { path: "business-hours", element: <AdminBusinessHoursPage /> },
+              { path: "availability-blocks", element: <AdminAvailabilityBlocksPage /> },
+              { path: "clients", element: <AdminClientsPage /> },
+            ],
           },
-          {
-            path: "professionals",
-            element: <AdminProfessionalsPage />,
-          },
-          {
-            path: "business-hours",
-            element: <AdminBusinessHoursPage />,
-          },
-          {
-            path: "availability-blocks",
-            element: <AdminAvailabilityBlocksPage />,
-          },
-          { path: "clients", element: <AdminClientsPage /> },
         ],
       },
     ],
