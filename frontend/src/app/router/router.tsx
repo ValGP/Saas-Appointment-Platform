@@ -10,6 +10,7 @@ import { AdminAvailabilityBlocksPage } from "../../features/admin/pages/AdminAva
 import { AdminBusinessHoursPage } from "../../features/admin/pages/AdminBusinessHoursPage";
 import { AdminCalendarPage } from "../../features/admin/pages/AdminCalendarPage";
 import { AdminClientsPage } from "../../features/admin/pages/AdminClientsPage";
+import { AdminSettingsPage } from "../../features/admin/pages/AdminSettingsPage";
 import { AdminProfessionalsPage } from "../../features/admin/pages/AdminProfessionalsPage";
 import { AdminServicesPage } from "../../features/admin/pages/AdminServicesPage";
 import { ClientAppointmentsPage } from "../../features/client/pages/ClientAppointmentsPage";
@@ -19,7 +20,6 @@ import { ClientProfilePage } from "../../features/client/pages/ClientProfilePage
 import { LoginPage } from "../../features/auth/pages/LoginPage";
 import { RegisterPage } from "../../features/auth/pages/RegisterPage";
 import { HomePage } from "../../features/public-site/pages/HomePage";
-import { TreatmentCategoryPage } from "../../features/public-site/pages/TreatmentCategoryPage";
 import { NotFoundPage } from "../../shared/components/NotFoundPage";
 import { BusinessProviderWrapper } from "./BusinessProviderWrapper";
 
@@ -36,7 +36,6 @@ export const router = createBrowserRouter([
         element: <PublicLayout />,
         children: [
           { index: true, element: <HomePage /> },
-          { path: "tratamientos/:slug", element: <TreatmentCategoryPage /> },
           { path: "book", element: <ClientBookPage isPublic={true} /> },
           { path: "book/success", element: <ClientBookingSuccessPage /> },
           {
@@ -80,6 +79,7 @@ export const router = createBrowserRouter([
               { path: "business-hours", element: <AdminBusinessHoursPage /> },
               { path: "availability-blocks", element: <AdminAvailabilityBlocksPage /> },
               { path: "clients", element: <AdminClientsPage /> },
+              { path: "settings", element: <AdminSettingsPage /> },
             ],
           },
         ],

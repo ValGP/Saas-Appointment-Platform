@@ -12,7 +12,7 @@
   --muted: #756a6d;
   --line: #eaded8;
   --primary: #8f4963;
-  --primary-strong: #6f2f48;
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, black);
   --secondary: #345c63;
   --admin-bg: #101317;
   --admin-surface: #171b21;

@@ -38,7 +38,7 @@ export function BusinessProvider({ children }: PropsWithChildren) {
       .then((data) => {
         setBusiness(data);
         if (data.primaryColor) {
-          document.documentElement.style.setProperty("--primary-color", data.primaryColor);
+          document.documentElement.style.setProperty("--primary", data.primaryColor);
         }
       })
       .catch((err) => {

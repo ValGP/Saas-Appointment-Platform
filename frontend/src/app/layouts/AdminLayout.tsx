@@ -13,6 +13,7 @@ import {
   UserRound,
   UsersRound,
   X,
+  Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
@@ -29,6 +30,7 @@ const adminLinks = [
   { to: "/admin/business-hours", label: "Horarios", icon: Clock3 },
   { to: "/admin/availability-blocks", label: "Bloqueos", icon: Blocks },
   { to: "/admin/clients", label: "Clientes", icon: UsersRound },
+  { to: "/admin/settings", label: "Configuración", icon: Settings },
 ];
 
 export function AdminLayout() {

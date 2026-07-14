@@ -1,249 +1,150 @@
 import {
   ArrowRight,
-  CheckCircle,
   HeartPulse,
   MessageCircle,
-  Quote,
-  Scissors,
   Sparkles,
   Star,
   Stethoscope,
-  UserRoundCheck,
   WandSparkles,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { PublicFooter } from "../components/PublicFooter";
-import { treatmentCategories } from "../data/treatmentContent";
-
-const categoryIcons = {
-  "recuperacion-capilar": HeartPulse,
-  "estetica-facial": Sparkles,
-  "estetica-corporal": WandSparkles,
-  "pestanas-cejas": Star,
-  podologia: Stethoscope,
-};
-
-const benefits = [
-  {
-    description: "Escuchamos que buscas y orientamos el tratamiento.",
-    icon: UserRoundCheck,
-    title: "Atencion personalizada",
-  },
-  {
-    description: "Cada proceso se adapta a tus necesidades reales.",
-    icon: Sparkles,
-    title: "Tratamientos a medida",
-  },
-  {
-    description: "Equipo preparado para trabajar con criterio y cuidado.",
-    icon: CheckCircle,
-    title: "Profesionales capacitados",
-  },
-  {
-    description: "Acompanamiento claro antes, durante y despues.",
-    icon: HeartPulse,
-    title: "Seguimiento en cada etapa",
-  },
-];
-
-const testimonials = [
-  {
-    initials: "MC",
-    name: "Milagros C.",
-    text: "Me explicaron cada paso y senti que el tratamiento estaba pensado para mi.",
-  },
-  {
-    initials: "AG",
-    name: "Ana G.",
-    text: "El espacio es tranquilo, la atencion es muy clara y sali con ganas de volver.",
-  },
-  {
-    initials: "LR",
-    name: "Laura R.",
-    text: "Me ayudaron a elegir el tratamiento sin prometer cosas raras. Muy profesional.",
-  },
-];
+import { useActiveBusiness } from "../../../app/providers/BusinessProvider";
+import { useQuery } from "@tanstack/react-query";
+import { getPublicServices } from "../../services/api/servicesApi";
+import { getPublicProfessionals } from "../../professionals/api/professionalsApi";
 
 export function HomePage() {
   const { businessSlug } = useParams<{ businessSlug: string }>();
+  const { business } = useActiveBusiness();
+
+  const servicesQuery = useQuery({
+    queryKey: ["public-services-list", businessSlug],
+    enabled: !!businessSlug,
+    queryFn: () => getPublicServices(),
+  });
+
+  const professionalsQuery = useQuery({
+    queryKey: ["public-professionals-list", businessSlug],
+    enabled: !!businessSlug,
+    queryFn: () => getPublicProfessionals(),
+  });
+
+  const services = servicesQuery.data ?? [];
+  const professionals = professionalsQuery.data ?? [];
+  const waNumber = business?.whatsapp ? business.whatsapp.replace(/\s+/g, "") : "";
+
   return (
     <div className="public-landing">
-      <section className="public-hero" id="inicio">
-        <div className="public-hero-media" aria-hidden="true" />
-        <div className="public-hero-overlay" />
-        <div className="public-hero-content">
+      <section className="public-hero" id="inicio" style={{ background: "linear-gradient(135deg, var(--primary) 0%, transparent 100%)", minHeight: "55vh", display: "flex", alignItems: "center" }}>
+        <div className="public-hero-content" style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px" }}>
           <div className="public-hero-kicker">
-            <span />
-            <WandSparkles aria-hidden="true" size={18} />
-            <strong>Salud, estetica y bienestar</strong>
-            <span />
+            <strong>Reservas Online</strong>
           </div>
-
-          <h1>
-            Centro de estetica
-            <span>y bienestar</span>
-          </h1>
+          <h1>{business?.name ?? "Turnos Online"}</h1>
           <p>
-            Tratamientos faciales, corporales y capilares personalizados para
-            acompanarte en cada etapa.
+            Elegí tu servicio, profesional y horario preferido desde nuestro asistente de reservas en línea.
           </p>
-
           <div className="public-hero-actions">
             <Link className="public-primary-button" to={`/n/${businessSlug}/book`}>
               <MessageCircle aria-hidden="true" size={18} />
               Reservar turno
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
-            <a className="public-ghost-button" href="#tratamientos">
-              Ver tratamientos
-              <Sparkles aria-hidden="true" size={18} />
-            </a>
+            {waNumber && (
+              <a className="public-ghost-button" href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer">
+                Contactar por WhatsApp
+              </a>
+            )}
           </div>
         </div>
       </section>
 
-      <section className="public-section public-treatment-section" id="tratamientos">
+      <section className="public-section public-treatment-section" id="servicios" style={{ padding: "60px 20px" }}>
         <SectionHeading
-          eyebrow="Tratamientos"
-          text="Organizamos las opciones principales para que puedas orientarte rapido y consultar lo que necesitas."
-          title="Elegi por categoria, no por una lista interminable"
+          eyebrow="Servicios"
+          text="Nuestro catálogo completo de servicios disponibles para agendar online."
+          title="Nuestros Servicios"
         />
 
-        <div className="public-treatment-grid">
-          {treatmentCategories.map((category) => {
-            const Icon =
-              categoryIcons[category.slug as keyof typeof categoryIcons] ??
-              Sparkles;
-
-            return (
-              <article className="public-treatment-card" key={category.slug}>
+        {servicesQuery.isLoading ? (
+          <div style={{ textAlign: "center", padding: "40px", color: "var(--muted)" }}>Cargando catálogo de servicios...</div>
+        ) : services.length === 0 ? (
+          <div className="client-empty-state" style={{ textAlign: "center", padding: "40px" }}>
+            <strong>No hay servicios registrados en este momento.</strong>
+          </div>
+        ) : (
+          <div className="public-treatment-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px", marginTop: "30px" }}>
+            {services.map((service) => (
+              <article className="public-treatment-card" key={service.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "20px", border: "1px solid var(--line, #ccc)", borderRadius: "12px", background: "var(--surface, #fff)" }}>
                 <div>
-                  <Icon aria-hidden="true" size={24} />
+                  <Sparkles aria-hidden="true" size={24} style={{ color: "var(--primary)" }} />
+                  <h3 style={{ margin: "12px 0 8px 0", fontSize: "18px" }}>{service.name}</h3>
+                  <p style={{ fontSize: "14px", color: "var(--muted)", margin: "0 0 16px 0", minHeight: "40px" }}>{service.description || "Sin descripción."}</p>
                 </div>
-                <h3>{category.title}</h3>
-                <p>{category.shortDescription}</p>
-                <Link to={`/tratamientos/${category.slug}`}>
-                  Ver mas
-                  <ArrowRight aria-hidden="true" size={16} />
-                </Link>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="public-feature-section">
-        <div className="public-feature-copy">
-          <p className="public-pill">Destacado</p>
-          <h2>Notas caida o debilitamiento del cabello?</h2>
-          <p>
-            Conoce nuestras opciones de recuperacion capilar, PRP y tratamientos
-            personalizados para acompanar tu proceso con seguimiento profesional.
-          </p>
-          <Link
-            className="public-primary-button"
-            to="/tratamientos/recuperacion-capilar"
-          >
-            Consultar tratamiento
-            <ArrowRight aria-hidden="true" size={18} />
-          </Link>
-        </div>
-        <div className="public-feature-card">
-          <Scissors aria-hidden="true" size={28} />
-          <strong>Recuperacion capilar</strong>
-          <span>Evaluacion, tratamiento y seguimiento.</span>
-        </div>
-      </section>
-
-      <section className="public-section public-benefits-section">
-        <SectionHeading
-          eyebrow="Por que elegir BIBE"
-          text="Menos vueltas, mas acompanamiento. La home guia al contacto; el detalle lo vemos juntos en la consulta."
-          title="Una experiencia clara, cuidada y personalizada"
-        />
-
-        <div className="public-benefits-grid">
-          {benefits.map((benefit) => {
-            const Icon = benefit.icon;
-
-            return (
-              <article className="public-benefit-card" key={benefit.title}>
-                <Icon aria-hidden="true" size={22} />
-                <h3>{benefit.title}</h3>
-                <p>{benefit.description}</p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="public-section public-results-section" id="resultados">
-        <SectionHeading
-          eyebrow="Resultados"
-          text="Hasta sumar imagenes reales, usamos resenas breves para reforzar confianza sin promesas exageradas."
-          title="Resultados que acompanan tu proceso"
-        />
-
-        <div className="public-testimonials-grid">
-          {testimonials.map((testimonial) => (
-            <article className="public-testimonial-card" key={testimonial.name}>
-              <div className="public-quote-icon">
-                <Quote aria-hidden="true" size={22} />
-              </div>
-              <p>"{testimonial.text}"</p>
-              <div className="public-testimonial-author">
-                <span>{testimonial.initials}</span>
-                <div>
-                  <strong>{testimonial.name}</strong>
-                  <small>Cliente BIBE</small>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", borderTop: "1px solid var(--line, #ccc)", paddingTop: "12px" }}>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>{service.durationMinutes} min</span>
+                    <strong style={{ fontSize: "16px", color: "var(--primary)" }}>${service.price}</strong>
+                  </div>
+                  <Link className="public-primary-button" to={`/n/${businessSlug}/book`} style={{ padding: "6px 12px", fontSize: "14px" }}>
+                    Agendar
+                  </Link>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
-      <section className="public-section public-about-section" id="sobre">
-        <div className="public-about-media">
-          <img
-            alt="Interior de centro de estetica"
-            src="https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=80&w=1080"
+      {professionals.length > 0 && (
+        <section className="public-section" id="equipo" style={{ padding: "60px 20px", background: "var(--surface-soft, #fdfbfa)" }}>
+          <SectionHeading
+            eyebrow="Profesionales"
+            text="Conocé a los especialistas preparados para atenderte."
+            title="Nuestro Equipo"
           />
-        </div>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "30px", marginTop: "40px" }}>
+            {professionals.map((prof) => (
+              <div key={prof.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px", background: "var(--surface, #fff)", border: "1px solid var(--line, #ccc)", borderRadius: "12px", minWidth: "200px" }}>
+                <div style={{
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "50%",
+                  background: "var(--primary-strong)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: "bold",
+                  fontSize: "20px",
+                  marginBottom: "12px"
+                }}>
+                  {prof.fullName.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                </div>
+                <strong>{prof.fullName}</strong>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>Profesional</span>
+                <Link to={`/n/${businessSlug}/book`} style={{ marginTop: "12px", fontSize: "13px", color: "var(--primary)", fontWeight: 500 }}>
+                  Reservar con {prof.fullName.split(" ")[0]} ➔
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-        <div className="public-about-copy">
-          <p className="public-pill">Sobre BIBE</p>
-          <h2>Estetica, salud y bienestar en un mismo lugar.</h2>
-          <p>
-            En BIBE combinamos estetica, salud y bienestar para acompanarte con
-            tratamientos seguros, personalizados y pensados para cada persona.
-          </p>
-          <a className="public-outline-button" href="#contacto">
-            Conocer mas
-            <ArrowRight aria-hidden="true" size={18} />
-          </a>
-        </div>
-      </section>
-
-      <section className="public-final-cta" id="contacto">
-        <div>
-          <p className="public-pill">Contacto</p>
-          <h2>Queres saber que tratamiento es ideal para vos?</h2>
-          <p>
-            Agenda una consulta y recibi asesoramiento personalizado para elegir
-            el mejor camino.
-          </p>
-        </div>
-        <div className="public-final-actions">
-          <a
-            className="public-primary-button"
-            href="https://wa.me/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            <MessageCircle aria-hidden="true" size={18} />
-            Contactar por WhatsApp
-          </a>
+      <section className="public-section" id="contacto" style={{ padding: "60px 20px", textAlign: "center" }}>
+        <h2>Contacto y Consultas</h2>
+        <p style={{ maxWidth: "600px", margin: "10px auto 30px auto", color: "var(--muted)" }}>
+          ¿Tenés alguna duda o querés realizar una consulta especial? Contactate directamente con nosotros.
+        </p>
+        <div className="public-final-actions" style={{ display: "flex", justifyContent: "center", gap: "16px" }}>
+          {waNumber && (
+            <a className="public-primary-button" href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer">
+              <MessageCircle aria-hidden="true" size={18} />
+              Contactar por WhatsApp
+            </a>
+          )}
           <Link className="public-ghost-button" to={`/n/${businessSlug}/login`}>
             Ingresar al portal
           </Link>

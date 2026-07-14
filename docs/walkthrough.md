@@ -60,3 +60,45 @@ Resultado: **BUILD SUCCESS** (Compilación limpia sin errores de tipos, sintaxis
 .\mvnw.cmd test
 ```
 Resultado: **BUILD SUCCESS** (86/86 pruebas pasadas).
+
+---
+
+## Fase 4: Personalización Visual y Temas Dinámicos (Completado)
+
+### 1. Inyección de Colores Hexadecimales
+* **Inyección de Variable CSS (`BusinessProvider.tsx`):**
+  Se modificó el proveedor para aplicar el color hexadecimal configurado en la base de datos a la variable CSS `--primary` en el elemento raíz del HTML (`:root`).
+* **Cálculo Automático de Colores Derivados (`global.css`):**
+  Se redefinió la variable `--primary-strong` (utilizada para los estados hover de todos los botones y enlaces interactivos) para calcularse de forma dinámica y paramétrica mediante la función nativa de CSS `color-mix()`:
+  ```css
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, black);
+  ```
+
+### 2. Plantilla de Catálogo y Landing Page Universal
+* **[MODIFY] [HomePage.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/features/public-site/pages/HomePage.tsx):**
+  * **Comportamiento Híbrido:** Si el inquilino activo es `bibe`, se sigue renderizando su landing page original altamente diseñada y con marketing específico.
+  * **Plantilla Dinámica:** Si el inquilino es cualquier otro (ej. `peluqueria-luz`), se renderiza una plantilla genérica premium que carga dinámicamente del backend los servicios activos (con precios y duraciones) y el equipo de profesionales, tiñendo el fondo con degradados fluidos basados en `--primary`.
+* **[MODIFY] [PublicFooter.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/features/public-site/components/PublicFooter.tsx):**
+  Se adaptó el pie de página de la web pública para leer el nombre y contacto del negocio activo de forma dinámica.
+  * **SaaS Branding Banner:** Se implementó una sección discreta con la leyenda *"Powered by TurnoFácil"* que se muestra u oculta en base al booleano `showBranding` del negocio (para dar soporte a planes Pro).
+
+### 3. API y Panel de Administración de la Configuración de Empresa
+* **[NEW] [BusinessController.java](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/backend/Appointment-Manager-API/src/main/java/com/turnos/api/business/BusinessController.java):**
+  Creación de endpoints seguros protegidos con `@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")` para obtener (`GET /api/businesses/my`) y actualizar (`PUT /api/businesses/my`) los datos de identidad corporativa (nombre, WhatsApp, color hexadecimal primario, visibilidad de branding) del inquilino activo en contexto.
+* **[NEW] [AdminSettingsPage.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/features/admin/pages/AdminSettingsPage.tsx):**
+  Página de configuración administrativa con formulario de edición que incluye un selector de color hexadecimal nativo (`<input type="color" />`) y checkbox para ocultar branding, conectado al nuevo endpoint y refrescando las variables CSS globales al guardar.
+* **Navegación e Integración (`router.tsx` & `AdminLayout.tsx`):**
+  Se añadió la pestaña "Configuración" en la barra lateral del administrador y se mapeó su correspondiente ruta.
+
+### 4. Pruebas y Construcción
+* **Pruebas de Integración (Backend):** Creada la suite `BusinessControllerTest.java` para verificar la seguridad, la persistencia y la resolución del inquilino de forma transaccional. Se ejecutó la suite completa:
+  ```bash
+  .\mvnw.cmd test
+  ```
+  **Resultado: BUILD SUCCESS** (88/88 pruebas exitosas sin errores).
+* **Compilación de Producción (Frontend):**
+  ```bash
+  npm run build
+  ```
+  **Resultado: BUILD SUCCESS** (0 errores de TypeScript y empaquetado exitoso).
+

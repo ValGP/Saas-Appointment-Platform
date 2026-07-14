@@ -117,11 +117,51 @@ Reestructurar el frontend para resolver el inquilino a partir de la URL, aplicar
 #### [MODIFY] [router.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/router/router.tsx)
 - Reorganizar las rutas públicas, de cliente y administración para que cuelguen de un Layout con parámetro dinámico: `/n/:businessSlug`.
 
-#### [MODIFY] [ThemeProvider.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/providers/ThemeProvider.tsx)
-- Adaptar para leer los colores configurados del negocio (ej. `primary_color`, `theme_preset`) a través de una llamada a la API del negocio (`/api/public/business/:slug`) y aplicarlos dinámicamente usando variables CSS en el elemento raíz `:root`.
+#### [MODIFY] [BusinessProvider.tsx](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/app/providers/BusinessProvider.tsx)
+- Adaptar para leer los colores hexadecimales configurados del negocio (ej. `primaryColor`) del backend y aplicarlos dinámicamente usando variables CSS (`--primary-color`) en el elemento raíz `:root`.
+- Los colores derivados (hover, fondos de badges, bordes, estados activos) se calcularán automáticamente en la hoja de estilos global utilizando la función nativa de CSS `color-mix()`.
+- Agregar un selector de color hexadecimal nativo (`<input type="color" />`) en el formulario de configuración del negocio en el panel de administración (remover la casilla de 'showBranding' de este panel, ya que pertenecerá exclusivamente a la consola de SuperAdmin).
 
 #### [MODIFY] [httpClient.ts](file:///c:/Users/vale-/CodeProjects/Freelance/TurnoFacil/frontend/src/shared/api/httpClient.ts)
 - Incluir un encabezado HTTP personalizado (ej. `X-Business-Slug` o `X-Business-ID`) en todas las peticiones al backend si el usuario no está autenticado, para que el backend sepa a qué negocio corresponde la consulta (por ejemplo, para cargar la lista de servicios en la landing de reservas).
+
+---
+
+### 3.1. Fase 4.1: Rediseño Visual Genérico y Maquetación de Secciones (Landing Page Paramétrica)
+
+Para elevar la calidad visual de la landing page pública y hacerla ver sumamente premium para cualquier rubro, reestructuraremos el layout en 6 secciones principales con reglas de diseño bien definidas:
+
+#### A. Portada Hero (Hero Section)
+*   **Diseño Visual:** Estructura asimétrica moderna de dos columnas.
+    *   *Columna Izquierda:* Eslogan comercial dinámico, descripción corta del negocio y un botón de CTA destacado ("Reservar Turno") y botón secundario ("Ver Catálogo") usando variables CSS `--primary` y su hover calculado.
+    *   *Columna Derecha:* Un componente de tipo **Glassmorphic Quick Booking Card** (tarjeta de vidrio esmerilado que flota sobre círculos difuminados de color de fondo) que invite al usuario a agendar inmediatamente, mostrando el nombre y slug del negocio actual de forma interactiva.
+*   **Fondo:** Un fondo con gradientes fluidos (mezclando el color `--primary` con transparencia) para dar profundidad moderna sin sobrecargar.
+
+#### B. Catálogo de Servicios Simple y Organizado (Services Cards Grid)
+*   **Diseño Visual:** Cuadrícula responsiva de tarjetas minimalistas. Para evitar interactividad innecesaria (tabs/clicks), los servicios se listarán todos directamente en la página.
+*   **Organización:** Opcionalmente se agruparán bajo títulos de texto limpios y elegantes según su categoría (ej. *"Estética Facial"*, *"Corte y Estilo"*), facilitando la lectura sin requerir solapas interactivas complejas.
+*   **Contenido de Tarjetas:**
+    *   Alineación limpia de textos.
+    *   Badge destacado con la duración en minutos (ej: `45 min`).
+    *   Precio destacado en negrita con el color primario (`var(--primary)`).
+    *   Descripción del servicio con límite de líneas para evitar asimetrías.
+    *   Botón "Agendar" de acción directa que eleva la tarjeta con una sombra suave (`box-shadow`) al hacer hover (efecto de elevación/lift).
+
+#### D. Nuestro Equipo (Staff/Professionals Section)
+*   **Diseño Visual:** Mosaico de avatares estilizados.
+*   **Avatares:** Círculos perfectos usando las iniciales del profesional con tipografía destacada y fondo en contraste de color de marca.
+*   **Interactividad:** Cada tarjeta de profesional incluirá un enlace rápido que redirigirá al asistente de reserva (`/book`) pre-seleccionando a dicho profesional, lo que agiliza el flujo del cliente.
+
+#### E. Horarios de Atención y Contacto (Business Hours & Contact)
+*   **Diseño Visual:** Secciones laterales bien delimitadas en un layout balanceado.
+    *   *Izquierda:* Tabla minimalista de horarios semanales con indicador destacado del día de hoy en color corporativo si el negocio está abierto.
+    *   *Derecha:* Tarjeta de contacto que incluye botón directo de redirección a WhatsApp Web configurado con el teléfono real del negocio (`https://wa.me/{numero}`).
+
+#### F. Powered by TurnoFácil (SaaS Branding)
+*   **Lógica de Renderizado:** Este banner se mostrará en el footer exclusivamente si `showBranding` es verdadero. El administrador del negocio no tendrá control para desactivarlo.
+*   **Ubicación:** Un bloque discreto y elegante en el borde inferior del footer.
+
+---
 
 
 ---
