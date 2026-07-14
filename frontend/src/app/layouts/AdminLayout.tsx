@@ -18,8 +18,9 @@ import {
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import { useTheme } from "../providers/ThemeProvider";
-import { AdminConfirmDialog } from "../../features/admin/components/AdminConfirmDialog";
 import { useAuth } from "../../features/auth/context/AuthProvider";
+import { useActiveBusiness } from "../providers/BusinessProvider";
+import { AdminConfirmDialog } from "../../features/admin/components/AdminConfirmDialog";
 
 const adminLinks = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -51,6 +52,8 @@ export function AdminLayout() {
     resolvedLinks.find((link) => location.pathname.startsWith(link.to)) ??
     resolvedLinks[0];
 
+  const { business } = useActiveBusiness();
+
   return (
     <div className={`admin-shell admin-theme-${theme}`}>
       <aside className="admin-sidebar">
@@ -60,10 +63,12 @@ export function AdminLayout() {
             to={`/n/${businessSlug}/admin`}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            <span className="admin-brand-mark">B</span>
+            <span className="admin-brand-mark">
+              {business?.name ? business.name[0].toUpperCase() : "B"}
+            </span>
             <span>
-              <strong>BIBE</strong>
-              <small>Estetica Admin</small>
+              <strong>{business?.name ?? "Turnos"}</strong>
+              <small>Admin</small>
             </span>
           </NavLink>
 

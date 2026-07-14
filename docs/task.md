@@ -30,12 +30,13 @@
 - [x] Adaptar layouts de cliente, admin y público para soportar los accesos basados en slug
 - [x] Adaptar flujo de reservas para solicitar los datos del cliente invitado en el último paso si no está autenticado
 
-## Fase 4: Personalización Visual y Temas Dinámicos
-- [x] Modificar `BusinessProvider.tsx` para inyectar la variable CSS `--primary-color` leída como código hexadecimal del backend en el elemento raíz `:root`
-- [x] Implementar el cálculo automático de colores derivados (hover, fondos claros, bordes) en CSS global usando `color-mix()` a partir de `--primary-color`
-- [x] Habilitar un input de selección de color hexadecimal nativo (`<input type="color" />`) en el formulario de configuración del negocio en el panel de administración
-- [x] Reemplazar referencias estáticas de marca en landing pages y dashboard para consumir los datos de configuración del negocio (respetar flag `show_branding` para quitar "Powered by TurnoFácil" en Pro)
-- [x] Validar funcionamiento de los diferentes presets de temas (Pink, Blue, Dark, etc.)
+## Fase 4.1: Rediseño Visual Genérico (Basado en Estética Premium)
+- [x] **4.1.1:** Importar fuentes google (`Plus Jakarta Sans` y `Inter`) y configurar variables CSS base y `color-mix()` en `global.css`
+- [x] **4.1.2:** Rediseñar la barra de navegación (Header) traslúcida y contenedor base (`PublicLayout.tsx`)
+- [x] **4.1.3:** Maquetar la portada Hero asimétrica y la tarjeta flotante glassmorphic de reserva rápida (`HomePage.tsx`)
+- [ ] **4.1.4:** Reestructurar el catálogo de servicios simple en cuadrícula agrupada con separadores elegantes por categoría
+- [ ] **4.1.5:** Maquetar la sección de equipo de profesionales y tabla de horarios y contacto directo
+- [ ] **4.1.6:** Limpiar el panel administrativo de la empresa quitando el control del branding (showBranding)
 
 ## Fase 5: Pruebas y Verificación de Aislamiento
 - [ ] Ejecutar suite completa de tests automatizados de backend (`mvnw test`) y corregir fallos debido a la adición de `business_id`

@@ -7,6 +7,7 @@
 *.sln
 *.swp
 .DS_Store
+.agents/
 
 # Frontend build & dependencies
 frontend/node_modules/

@@ -31,14 +31,21 @@ export function BusinessProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!businessSlug) return;
 
+    // Inyectar instantáneamente el color guardado en caché para evitar destellos visuales
+    const cachedColor = localStorage.getItem(`tf.color.${businessSlug}`);
+    if (cachedColor) {
+      document.documentElement.style.setProperty("--primary", cachedColor);
+    }
+
     setLoading(true);
     setError(null);
 
-    apiRequest<BusinessConfig>(`/public/businesses/${businessSlug}`)
+    apiRequest<BusinessConfig>(`/api/public/businesses/${businessSlug}`)
       .then((data) => {
         setBusiness(data);
         if (data.primaryColor) {
           document.documentElement.style.setProperty("--primary", data.primaryColor);
+          localStorage.setItem(`tf.color.${businessSlug}`, data.primaryColor);
         }
       })
       .catch((err) => {

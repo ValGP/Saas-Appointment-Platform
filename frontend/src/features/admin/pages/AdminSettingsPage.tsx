@@ -56,7 +56,7 @@ export function AdminSettingsPage() {
       name: name.trim(),
       whatsapp: whatsapp.trim(),
       primaryColor,
-      showBranding,
+      showBranding: businessQuery.data?.showBranding ?? true,
     });
   };
 
@@ -159,23 +159,6 @@ export function AdminSettingsPage() {
               </small>
             </div>
 
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginTop: "10px" }}>
-              <input
-                type="checkbox"
-                id="showBranding"
-                checked={showBranding}
-                onChange={(e) => setShowBranding(e.target.checked)}
-                style={{ marginTop: "4px", width: "16px", height: "16px", cursor: "pointer" }}
-              />
-              <div>
-                <label htmlFor="showBranding" style={{ fontWeight: "bold", fontSize: "14px", cursor: "pointer" }}>
-                  Mostrar branding de TurnoFácil
-                </label>
-                <small style={{ color: "var(--muted)", display: "block" }}>
-                  Si se desmarca, se ocultará la leyenda "Powered by TurnoFácil" del pie de tu página (solo disponible para planes PRO).
-                </small>
-              </div>
-            </div>
 
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: "20px", display: "flex", justifyContent: "flex-end" }}>
               <button

@@ -76,7 +76,7 @@ The core scheduling logic resolves slot availability dynamically:
 The system is architected to transition into a commercial subscription-based platform:
 * **Free Plan:**
   * Limited to 1 active business/location.
-  * "Powered by TurnoFácil" branding visible on the booking checkout.
+  * "Powered by [APP NAME]" branding visible on the booking checkout.
 * **Pro Plan:**
   * Multi-business administration from a single user dashboard.
   * White-label booking flow (hides platform branding).
