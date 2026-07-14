@@ -8,7 +8,6 @@ export function AdminSettingsPage() {
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#8f4963");
-  const [showBranding, setShowBranding] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -23,7 +22,6 @@ export function AdminSettingsPage() {
       setName(biz.name || "");
       setWhatsapp(biz.whatsapp || "");
       setPrimaryColor(biz.primaryColor || "#8f4963");
-      setShowBranding(biz.showBranding);
     }
   }, [businessQuery.data]);
 
