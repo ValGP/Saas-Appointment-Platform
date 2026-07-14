@@ -1,12 +1,17 @@
+import { useState } from "react";
 import {
   ArrowRight,
+  Clock,
   HeartPulse,
   LayoutGrid,
+  Mail,
+  MapPin,
   MessageCircle,
   Sparkles,
   Star,
   Stethoscope,
   WandSparkles,
+  X,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { PublicFooter } from "../components/PublicFooter";
@@ -18,6 +23,8 @@ import { getPublicProfessionals } from "../../professionals/api/professionalsApi
 export function HomePage() {
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const { business } = useActiveBusiness();
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
 
   const servicesQuery = useQuery({
     queryKey: ["public-services-list", businessSlug],
@@ -33,11 +40,15 @@ export function HomePage() {
 
   const services = servicesQuery.data ?? [];
   const professionals = professionalsQuery.data ?? [];
-  const waNumber = business?.whatsapp ? business.whatsapp.replace(/\s+/g, "") : "";
+  const waNumber = business?.whatsapp ?? "";
+  const normalizedWaNumber = waNumber.replace(/\D/g, "");
 
   // Agrupar los servicios por el nombre de su categoría
   const servicesByCategory = services.reduce<Record<string, typeof services>>((acc, service) => {
-    const categoryName = service.categoryName || "Otros Servicios";
+    const categoryName = service.categoryName === "Sin categoria" || service.categorySlug === "sin-categoria" || !service.categoryName
+      ? "Sin categoria"
+      : service.categoryName;
+
     if (!acc[categoryName]) {
       acc[categoryName] = [];
     }
@@ -173,125 +184,239 @@ export function HomePage() {
             <strong>No hay servicios registrados en este momento.</strong>
           </div>
         ) : (
-          <div className="public-categories-container" style={{ display: "flex", flexDirection: "column", gap: "40px", marginTop: "30px" }}>
-            {Object.entries(servicesByCategory).map(([categoryName, items]) => (
-              <div key={categoryName} className="public-category-group">
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-                  <h3 style={{
-                    fontSize: "20px",
-                    fontWeight: "800",
-                    color: "var(--text)",
-                    margin: 0,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif"
-                  }}>
-                    {categoryName}
-                  </h3>
-                  <div style={{ flex: 1, height: "1px", background: "var(--line)" }}></div>
-                </div>
+          <>
+            <div className="public-treatment-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px", marginTop: "30px" }}>
+              {services.slice(0, 6).map((service) => (
+                <article className="public-treatment-card" key={service.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "24px", border: "1px solid var(--line)", borderRadius: "16px", background: "var(--surface)", boxShadow: "0 4px 20px var(--shadow-color)" }}>
+                  {/* Contenedor horizontal superior (icono a la izquierda, título y descripción a la derecha) */}
+                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+                    {/* Icono de grilla en caja gris claro elegante */}
+                    <div style={{
+                      width: "42px",
+                      height: "42px",
+                      borderRadius: "10px",
+                      background: "var(--surface-soft)",
+                      border: "1px solid var(--line)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--primary)",
+                      flexShrink: 0
+                    }}>
+                      <LayoutGrid size={20} />
+                    </div>
+                    
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "700", color: "var(--text)", lineHeight: "1.3" }}>
+                        {service.name}
+                      </h4>
+                      {service.description && (
+                        <p style={{ fontSize: "14px", color: "var(--muted)", margin: 0, lineHeight: "1.5" }}>
+                          {service.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "16px" }}>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: "13px", color: "var(--muted)", fontWeight: 500 }}>{service.durationMinutes} min</span>
+                      <strong style={{ fontSize: "18px", color: "var(--primary)", fontWeight: "800" }}>${service.price}</strong>
+                    </div>
+                    <Link className="public-primary-button" to={`/n/${businessSlug}/book`} style={{ padding: "6px 16px", fontSize: "14px", minHeight: "38px" }}>
+                      Agendar
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
 
-                <div className="public-treatment-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
-                  {items.map((service) => (
-                    <article className="public-treatment-card" key={service.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "24px", border: "1px solid var(--line)", borderRadius: "16px", background: "var(--surface)", boxShadow: "0 4px 20px var(--shadow-color)" }}>
-                      {/* Contenedor horizontal superior (icono a la izquierda, título y descripción a la derecha) */}
-                      <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
-                        {/* Icono de grilla en caja gris claro elegante */}
-                        <div style={{
-                          width: "42px",
-                          height: "42px",
-                          borderRadius: "10px",
-                          background: "var(--surface-soft)",
-                          border: "1px solid var(--line)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "var(--primary)",
-                          flexShrink: 0
-                        }}>
-                          <LayoutGrid size={20} />
-                        </div>
-                        
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <h4 style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "700", color: "var(--text)", lineHeight: "1.3" }}>
-                            {service.name}
-                          </h4>
-                          {service.description && (
-                            <p style={{ fontSize: "14px", color: "var(--muted)", margin: 0, lineHeight: "1.5" }}>
-                              {service.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "16px" }}>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: "13px", color: "var(--muted)", fontWeight: 500 }}>{service.durationMinutes} min</span>
-                          <strong style={{ fontSize: "18px", color: "var(--primary)", fontWeight: "800" }}>${service.price}</strong>
-                        </div>
-                        <Link className="public-primary-button" to={`/n/${businessSlug}/book`} style={{ padding: "6px 16px", fontSize: "14px", minHeight: "38px" }}>
-                          Agendar
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+            {services.length > 6 && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: "36px" }}>
+                <button
+                  className="public-ghost-button"
+                  onClick={() => setIsServicesModalOpen(true)}
+                  style={{ minHeight: "44px", padding: "10px 24px" }}
+                >
+                  Mostrar todos
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+
+          </>
         )}
       </section>
 
       {professionals.length > 0 && (
-        <section className="public-section" id="equipo" style={{ padding: "60px 20px", background: "var(--surface-soft, #fdfbfa)" }}>
+        <section className="public-team-section" id="equipo">
           <SectionHeading
-            eyebrow="Profesionales"
-            text="Conocé a los especialistas preparados para atenderte."
+            eyebrow="Equipo"
+            text="Elegí con quién querés reservar tu turno."
             title="Nuestro Equipo"
           />
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "30px", marginTop: "40px" }}>
-            {professionals.map((prof) => (
-              <div key={prof.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px", background: "var(--surface, #fff)", border: "1px solid var(--line, #ccc)", borderRadius: "12px", minWidth: "200px" }}>
-                <div style={{
-                  width: "60px",
-                  height: "60px",
-                  borderRadius: "50%",
-                  background: "var(--primary-strong)",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  fontSize: "20px",
-                  marginBottom: "12px"
-                }}>
+          <div className="public-team-grid">
+            {professionals.slice(0, 4).map((prof) => (
+              <div key={prof.id} className="public-team-card">
+                <div className="public-team-avatar">
                   {prof.fullName.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
                 </div>
-                <strong>{prof.fullName}</strong>
-                <span style={{ fontSize: "12px", color: "var(--muted)" }}>Profesional</span>
-                <Link to={`/n/${businessSlug}/book`} style={{ marginTop: "12px", fontSize: "13px", color: "var(--primary)", fontWeight: 500 }}>
+                <strong className="public-team-name">{prof.fullName}</strong>
+                <Link to={`/n/${businessSlug}/book`} className="public-team-btn">
                   Reservar con {prof.fullName.split(" ")[0]} ➔
                 </Link>
               </div>
             ))}
           </div>
+
+          {professionals.length > 4 && (
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "36px" }}>
+              <button
+                className="public-ghost-button"
+                onClick={() => setIsTeamModalOpen(true)}
+                style={{ minHeight: "44px", padding: "10px 24px" }}
+              >
+                Mostrar todos
+              </button>
+            </div>
+          )}
         </section>
       )}
 
-      <section className="public-section" id="contacto" style={{ padding: "60px 20px", textAlign: "center" }}>
-        <h2>Contacto y Consultas</h2>
-        <p style={{ maxWidth: "600px", margin: "10px auto 30px auto", color: "var(--muted)" }}>
-          ¿Tenés alguna duda o querés realizar una consulta especial? Contactate directamente con nosotros.
-        </p>
-        <div className="public-final-actions" style={{ display: "flex", justifyContent: "center", gap: "16px" }}>
-          {waNumber && (
-            <a className="public-primary-button" href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer">
-              <MessageCircle aria-hidden="true" size={18} />
-              Contactar por WhatsApp
-            </a>
-          )}
-          <Link className="public-ghost-button" to={`/n/${businessSlug}/login`}>
-            Ingresar al portal
-          </Link>
+      <section className="public-contact-section" id="contacto">
+        <div className="public-contact-container">
+          <h3>Contacto y Consultas</h3>
+          <p>
+            ¿Tenés alguna duda o querés realizar una consulta especial? Contactate directamente con nosotros a través de nuestros canales oficiales o accedé al portal.
+          </p>
+          <div className="public-contact-actions">
+            <Link className="public-primary-button" to={`/n/${businessSlug}/book`}>
+              Reservar Turno
+            </Link>
+            {normalizedWaNumber && (
+              <a className="public-ghost-button" href={`https://wa.me/${normalizedWaNumber}`} target="_blank" rel="noreferrer">
+                <MessageCircle size={18} style={{ marginRight: "6px" }} />
+                Consultar por WhatsApp
+              </a>
+            )}
+            <Link className="public-ghost-button" to={`/n/${businessSlug}/login`}>
+              Ingresar al portal
+            </Link>
+          </div>
         </div>
       </section>
+
+      {isServicesModalOpen && (
+        <div className="public-modal-overlay" onClick={() => setIsServicesModalOpen(false)}>
+          <div className="public-modal-container is-large" onClick={(e) => e.stopPropagation()}>
+            <div className="public-modal-header">
+              <h3>Nuestros Servicios</h3>
+              <button className="public-modal-close-btn" onClick={() => setIsServicesModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="public-modal-content">
+              <div className="public-categories-container" style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
+                {Object.entries(servicesByCategory).map(([categoryName, items]) => (
+                  <div key={categoryName} className="public-category-group" style={{ marginBottom: categoryName === "Sin categoria" ? "0" : "20px" }}>
+                    {categoryName !== "Sin categoria" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                        <h3 style={{
+                          fontSize: "20px",
+                          fontWeight: "800",
+                          color: "var(--text)",
+                          margin: 0,
+                          fontFamily: "'Plus Jakarta Sans', sans-serif"
+                        }}>
+                          {categoryName}
+                        </h3>
+                        <div style={{ flex: 1, height: "1px", background: "var(--line)" }}></div>
+                      </div>
+                    )}
+
+                    <div className="public-treatment-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
+                      {items.map((service) => (
+                        <article className="public-treatment-card" key={service.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "24px", border: "1px solid var(--line)", borderRadius: "16px", background: "var(--surface)", boxShadow: "0 4px 20px var(--shadow-color)" }}>
+                          <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+                            <div style={{
+                              width: "42px",
+                              height: "42px",
+                              borderRadius: "10px",
+                              background: "var(--surface-soft)",
+                              border: "1px solid var(--line)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "var(--primary)",
+                              flexShrink: 0
+                            }}>
+                              <LayoutGrid size={20} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <h4 style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "700", color: "var(--text)", lineHeight: "1.3" }}>
+                                {service.name}
+                              </h4>
+                              {service.description && (
+                                <p style={{ fontSize: "14px", color: "var(--muted)", margin: 0, lineHeight: "1.5" }}>
+                                  {service.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "16px" }}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontSize: "13px", color: "var(--muted)", fontWeight: 500 }}>{service.durationMinutes} min</span>
+                              <strong style={{ fontSize: "18px", color: "var(--primary)", fontWeight: "800" }}>${service.price}</strong>
+                            </div>
+                            <Link
+                              className="public-primary-button"
+                              to={`/n/${businessSlug}/book`}
+                              style={{ padding: "6px 16px", fontSize: "14px", minHeight: "38px" }}
+                              onClick={() => setIsServicesModalOpen(false)}
+                            >
+                              Agendar
+                            </Link>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isTeamModalOpen && (
+        <div className="public-modal-overlay" onClick={() => setIsTeamModalOpen(false)}>
+          <div className="public-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="public-modal-header">
+              <h3>Nuestro Equipo</h3>
+              <button className="public-modal-close-btn" onClick={() => setIsTeamModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="public-modal-content">
+              <div className="public-team-grid" style={{ marginTop: 0 }}>
+                {professionals.map((prof) => (
+                  <div key={prof.id} className="public-team-card">
+                    <div className="public-team-avatar">
+                      {prof.fullName.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                    </div>
+                    <strong className="public-team-name">{prof.fullName}</strong>
+                    <Link
+                      to={`/n/${businessSlug}/book`}
+                      className="public-team-btn"
+                      onClick={() => setIsTeamModalOpen(false)}
+                    >
+                      Reservar con {prof.fullName.split(" ")[0]} ➔
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PublicFooter />
     </div>
