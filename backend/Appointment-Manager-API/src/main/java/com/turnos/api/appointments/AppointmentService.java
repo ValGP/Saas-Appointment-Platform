@@ -40,6 +40,7 @@ public class AppointmentService {
     private final BusinessRepository businessRepository;
     private final NotificationService notificationService;
     private final ProfessionalServiceAssignmentService professionalServiceAssignmentService;
+    private final ProfessionalAssignmentStrategy assignmentStrategy;
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
@@ -50,7 +51,8 @@ public class AppointmentService {
             AvailabilityBlockRepository availabilityBlockRepository,
             BusinessRepository businessRepository,
             NotificationService notificationService,
-            ProfessionalServiceAssignmentService professionalServiceAssignmentService
+            ProfessionalServiceAssignmentService professionalServiceAssignmentService,
+            ProfessionalAssignmentStrategy assignmentStrategy
     ) {
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
@@ -61,19 +63,19 @@ public class AppointmentService {
         this.businessRepository = businessRepository;
         this.notificationService = notificationService;
         this.professionalServiceAssignmentService = professionalServiceAssignmentService;
+        this.assignmentStrategy = assignmentStrategy;
     }
 
     @Transactional
     public AppointmentResponse create(AppointmentRequest request, AuthenticatedUser authenticatedUser) {
         User client = resolveClient(request, authenticatedUser);
-        Professional professional = getProfessional(request.professionalId());
         com.turnos.api.services.Service service = getService(request.serviceId());
         LocalDateTime endDateTime = service.calculateEndDateTime(request.startDateTime());
+        // resolveProfessional handles: load, active check, service assignment check (and strategy when null)
+        Professional professional = resolveProfessional(request.professionalId(), service, request.startDateTime(), endDateTime);
 
         validateClient(client);
-        validateProfessional(professional);
         validateService(service, authenticatedUser);
-        professionalServiceAssignmentService.ensureProfessionalProvidesService(professional.getId(), service.getId());
         validateAvailability(professional.getId(), request.startDateTime(), endDateTime);
 
         Business business = getActiveBusiness();
@@ -115,21 +117,19 @@ public class AppointmentService {
             throw new ConflictException("User is registered with an admin/professional profile");
         }
 
-        // 2. Load professional and service
-        Professional professional = getProfessional(request.professionalId());
+        // 2. Load service, resolve professional (handles load, active check, assignment, and strategy when null)
         com.turnos.api.services.Service service = getService(request.serviceId());
         LocalDateTime endDateTime = service.calculateEndDateTime(request.startDateTime());
+        Professional professional = resolveProfessional(request.professionalId(), service, request.startDateTime(), endDateTime);
 
         // 3. Validations
         validateClient(client);
-        validateProfessional(professional);
         if (!service.canBeBooked()) {
             throw new ConflictException("Service must be active");
         }
         if (!service.canBeBookedOnline()) {
             throw new ConflictException("Service is not available for online booking");
         }
-        professionalServiceAssignmentService.ensureProfessionalProvidesService(professional.getId(), service.getId());
         validateAvailability(professional.getId(), request.startDateTime(), endDateTime);
 
         // 4. Create appointment
@@ -216,6 +216,50 @@ public class AppointmentService {
         appointment.markNoShow();
         notificationService.appointmentMarkedNoShow(appointment);
         return AppointmentResponse.from(appointment);
+    }
+
+    /**
+     * Resolves the professional for an appointment.
+     *
+     * <p>When {@code professionalId} is provided: loads the professional, validates they
+     * are active and assigned to the service, then returns them directly. The final
+     * availability check is still performed by {@link #validateAvailability} to guard
+     * against race conditions.</p>
+     *
+     * <p>When {@code professionalId} is {@code null} ("any available" mode): fetches all
+     * active professionals assigned to the service and delegates to the configured
+     * {@link ProfessionalAssignmentStrategy} to pick one. The strategy itself performs
+     * real-time availability checks; {@link #validateAvailability} is then called again
+     * as a final atomic guard.</p>
+     *
+     * @throws ConflictException if no suitable professional can be found
+     */
+    private Professional resolveProfessional(
+            Long professionalId,
+            com.turnos.api.services.Service service,
+            LocalDateTime start,
+            LocalDateTime end
+    ) {
+        if (professionalId != null) {
+            Professional professional = getProfessional(professionalId);
+            validateProfessional(professional);
+            professionalServiceAssignmentService.ensureProfessionalProvidesService(professionalId, service.getId());
+            return professional;
+        }
+
+        // "Any available" mode — delegate to the configured assignment strategy
+        List<Professional> candidates = professionalServiceAssignmentService
+                .findProfessionalsForService(service.getId())
+                .stream()
+                .filter(Professional::canAttendAppointments)
+                .toList();
+
+        if (candidates.isEmpty()) {
+            throw new ConflictException(
+                    "No active professionals are configured for the selected service.");
+        }
+
+        return assignmentStrategy.resolve(service, start, end, candidates);
     }
 
     private User resolveClient(AppointmentRequest request, AuthenticatedUser authenticatedUser) {
