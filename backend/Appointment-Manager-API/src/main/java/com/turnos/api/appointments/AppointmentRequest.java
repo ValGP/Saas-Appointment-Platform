@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 public record AppointmentRequest(
         Long clientId,
 
-        @NotNull
         Long professionalId,
 
         @NotNull

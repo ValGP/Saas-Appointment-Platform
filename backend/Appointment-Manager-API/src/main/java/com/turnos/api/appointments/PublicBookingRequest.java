@@ -9,7 +9,6 @@ public record PublicBookingRequest(
         @NotNull(message = "serviceId is required")
         Long serviceId,
 
-        @NotNull(message = "professionalId is required")
         Long professionalId,
 
         @NotNull(message = "startDateTime is required")

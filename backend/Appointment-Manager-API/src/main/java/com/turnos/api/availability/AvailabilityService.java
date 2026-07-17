@@ -48,6 +48,13 @@ public class AvailabilityService {
         this.professionalServiceAssignmentService = professionalServiceAssignmentService;
     }
 
+    /**
+     * Loads professional and service by their IDs, validates preconditions,
+     * then delegates to {@link #getAvailabilityForProfessional}.
+     *
+     * <p>This is the entry point for single-professional availability queries
+     * made by authenticated controllers.</p>
+     */
     @Transactional(readOnly = true)
     public List<AvailabilitySlotResponse> getAvailability(Long professionalId, Long serviceId, LocalDate date) {
         Professional professional = professionalRepository.findById(professionalId)
@@ -65,8 +72,44 @@ public class AvailabilityService {
             return List.of();
         }
 
+        return getAvailabilityForProfessional(professional, service, date);
+    }
+
+    /**
+     * Calculates available slots for a single professional on a given date.
+     *
+     * <p>This method assumes all preconditions (professional active, service bookable,
+     * assignment validated) have already been checked by the caller.
+     * It is designed to be called in bulk by {@code AvailabilityAggregatorService}
+     * without repeating entity-loading or validation overhead per professional.</p>
+     *
+     * <p>Algorithm:</p>
+     * <ol>
+     *   <li>Load appointments that overlap the requested day (PENDING or CONFIRMED).</li>
+     *   <li>Load active availability blocks that overlap the requested day.</li>
+     *   <li>Iterate over each active business-hours window for that day of the week.</li>
+     *   <li>Generate candidate slots of {@code service.durationMinutes} length.</li>
+     *   <li>Keep only slots that are in the future, do not overlap appointments,
+     *       and do not overlap blocks.</li>
+     *   <li>Return the list sorted chronologically.</li>
+     * </ol>
+     *
+     * @param professional the professional whose schedule to evaluate (must be active)
+     * @param service      the service to be rendered (must be bookable)
+     * @param date         the calendar date to query
+     * @return sorted list of available slots; empty if none found
+     */
+    @Transactional(readOnly = true)
+    public List<AvailabilitySlotResponse> getAvailabilityForProfessional(
+            Professional professional,
+            com.turnos.api.services.Service service,
+            LocalDate date
+    ) {
+        Long professionalId = professional.getId();
+
         LocalDateTime dayStart = date.atStartOfDay();
         LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+
         List<Appointment> appointments = appointmentRepository
                 .findByProfessionalIdAndStatusInAndStartDateTimeBeforeAndEndDateTimeAfter(
                         professionalId,
@@ -105,6 +148,8 @@ public class AvailabilityService {
                 .sorted(Comparator.comparing(AvailabilitySlotResponse::startDateTime))
                 .toList();
     }
+
+    // ─── Private helpers ──────────────────────────────────────────────────────
 
     private boolean doesNotOverlapAppointments(LocalDateTime startDateTime, LocalDateTime endDateTime, List<Appointment> appointments) {
         return appointments.stream()
