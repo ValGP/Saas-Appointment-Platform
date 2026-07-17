@@ -48,80 +48,82 @@ export function RegisterPage() {
   }
 
   return (
-    <section className="auth-card">
-      <p className="eyebrow">Registro de cliente</p>
-      <h1>Crear cuenta</h1>
-      <p>Registrate para poder agendar y gestionar tus turnos.</p>
+    <div className="auth-page-wrapper">
+      <section className="auth-card">
+        <p className="eyebrow">Registro de cliente</p>
+        <h1>Crear cuenta</h1>
+        <p>Registrate para poder agendar y gestionar tus turnos.</p>
 
-      <form className="form-stack" onSubmit={handleSubmit(onSubmit)}>
-        <label>
-          Nombre completo
-          <input
-            autoComplete="name"
-            type="text"
-            {...register("fullName", {
-              required: "Ingresa tu nombre completo.",
-            })}
-          />
-          {errors.fullName ? (
-            <span className="field-error">{errors.fullName.message}</span>
-          ) : null}
-        </label>
+        <form className="form-stack" onSubmit={handleSubmit(onSubmit)}>
+          <label>
+            Nombre completo
+            <input
+              autoComplete="name"
+              type="text"
+              {...register("fullName", {
+                required: "Ingresa tu nombre completo.",
+              })}
+            />
+            {errors.fullName ? (
+              <span className="field-error">{errors.fullName.message}</span>
+            ) : null}
+          </label>
 
-        <label>
-          Email
-          <input
-            autoComplete="email"
-            type="email"
-            {...register("email", {
-              required: "Ingresa tu email.",
-            })}
-          />
-          {errors.email ? (
-            <span className="field-error">{errors.email.message}</span>
-          ) : null}
-        </label>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              type="email"
+              {...register("email", {
+                required: "Ingresa tu email.",
+              })}
+            />
+            {errors.email ? (
+              <span className="field-error">{errors.email.message}</span>
+            ) : null}
+          </label>
 
-        <label>
-          Password
-          <input
-            autoComplete="new-password"
-            type="password"
-            {...register("password", {
-              required: "Ingresa tu password.",
-              minLength: {
-                value: 8,
-                message: "La contraseña debe tener al menos 8 caracteres.",
-              },
-            })}
-          />
-          {errors.password ? (
-            <span className="field-error">{errors.password.message}</span>
-          ) : null}
-        </label>
+          <label>
+            Password
+            <input
+              autoComplete="new-password"
+              type="password"
+              {...register("password", {
+                required: "Ingresa tu password.",
+                minLength: {
+                  value: 8,
+                  message: "La contraseña debe tener al menos 8 caracteres.",
+                },
+              })}
+            />
+            {errors.password ? (
+              <span className="field-error">{errors.password.message}</span>
+            ) : null}
+          </label>
 
-        <label>
-          Telefono (opcional)
-          <input
-            autoComplete="tel"
-            type="tel"
-            {...register("phone")}
-          />
-          {errors.phone ? (
-            <span className="field-error">{errors.phone.message}</span>
-          ) : null}
-        </label>
+          <label>
+            Telefono (opcional)
+            <input
+              autoComplete="tel"
+              type="tel"
+              {...register("phone")}
+            />
+            {errors.phone ? (
+              <span className="field-error">{errors.phone.message}</span>
+            ) : null}
+          </label>
 
-        {error ? <div className="form-error">{error}</div> : null}
+          {error ? <div className="form-error">{error}</div> : null}
 
-        <button className="button" disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Creando cuenta..." : "Crear cuenta"}
-        </button>
-      </form>
+          <button className="public-primary-button" style={{ width: "100%" }} disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Creando cuenta..." : "Crear cuenta"}
+          </button>
+        </form>
 
-      <p className="auth-footer">
-        Ya tenes cuenta? <Link to={`/n/${businessSlug}/login`}>Ingresar</Link>
-      </p>
-    </section>
+        <p className="auth-footer">
+          Ya tenes cuenta? <Link to={`/n/${businessSlug}/login`}>Ingresar</Link>
+        </p>
+      </section>
+    </div>
   );
 }

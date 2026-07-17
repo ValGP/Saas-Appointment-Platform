@@ -20,8 +20,7 @@ export function PublicFooter() {
           width: "36px",
           height: "36px",
           borderRadius: "50%",
-          background: "rgba(255, 255, 255, 0.1)",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
+          background: "var(--primary)",
           color: "#ffffff",
           display: "inline-flex",
           alignItems: "center",
@@ -29,13 +28,13 @@ export function PublicFooter() {
           fontWeight: "bold",
           fontSize: "16px",
           marginRight: "12px",
-          flexShrink: 0
+          flexShrink: 0,
+          boxShadow: "0 4px 10px var(--shadow-color)"
         }}>
           {business?.name ? business.name[0].toUpperCase() : "T"}
         </span>
         <div>
           <strong style={{ display: "block" }}>{business?.name ?? "BIBE"}</strong>
-          <small style={{ opacity: 0.7 }}>{business?.slug === "bibe" ? "Salud y estética" : "Reserva de Turnos"}</small>
         </div>
       </div>
       <nav aria-label="Links principales">

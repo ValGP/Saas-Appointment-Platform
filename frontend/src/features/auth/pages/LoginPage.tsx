@@ -46,50 +46,51 @@ export function LoginPage() {
   }
 
   return (
-    <section className="auth-card">
-      <p className="eyebrow">Autenticacion</p>
-      <h1>Ingresar</h1>
-      <p>Usa tu cuenta para acceder al panel o al area de cliente.</p>
+    <div className="auth-page-wrapper">
+      <section className="auth-card">
+        <p className="eyebrow">Autenticacion</p>
+        <h1>Ingresar</h1>
 
-      <form className="form-stack" onSubmit={handleSubmit(onSubmit)}>
-        <label>
-          Email
-          <input
-            autoComplete="email"
-            type="email"
-            {...register("email", {
-              required: "Ingresa tu email.",
-            })}
-          />
-          {errors.email ? (
-            <span className="field-error">{errors.email.message}</span>
-          ) : null}
-        </label>
+        <form className="form-stack" onSubmit={handleSubmit(onSubmit)}>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              type="email"
+              {...register("email", {
+                required: "Ingresa tu email.",
+              })}
+            />
+            {errors.email ? (
+              <span className="field-error">{errors.email.message}</span>
+            ) : null}
+          </label>
 
-        <label>
-          Password
-          <input
-            autoComplete="current-password"
-            type="password"
-            {...register("password", {
-              required: "Ingresa tu password.",
-            })}
-          />
-          {errors.password ? (
-            <span className="field-error">{errors.password.message}</span>
-          ) : null}
-        </label>
+          <label>
+            Password
+            <input
+              autoComplete="current-password"
+              type="password"
+              {...register("password", {
+                required: "Ingresa tu password.",
+              })}
+            />
+            {errors.password ? (
+              <span className="field-error">{errors.password.message}</span>
+            ) : null}
+          </label>
 
-        {error ? <div className="form-error">{error}</div> : null}
+          {error ? <div className="form-error">{error}</div> : null}
 
-        <button className="button" disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Ingresando..." : "Ingresar"}
-        </button>
-      </form>
+          <button className="public-primary-button" style={{ width: "100%" }} disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Ingresando..." : "Ingresar"}
+          </button>
+        </form>
 
-      <p className="auth-footer">
-        No tenes cuenta? <Link to={`/n/${businessSlug}/register`}>Registrarse</Link>
-      </p>
-    </section>
+        <p className="auth-footer">
+          No tenes cuenta? <Link to={`/n/${businessSlug}/register`}>Registrarse</Link>
+        </p>
+      </section>
+    </div>
   );
 }
