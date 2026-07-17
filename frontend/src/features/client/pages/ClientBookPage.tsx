@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock,
   Info,
+  Search,
   Sparkles,
   UserRoundCheck,
   X,
@@ -119,6 +120,7 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const queryClient = useQueryClient();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(
     null,
@@ -141,12 +143,11 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   });
 
   const servicesQuery = useQuery({
-    queryKey: ["client-services", selectedCategoryId, isPublic],
-    enabled: selectedCategoryId !== null,
+    queryKey: ["client-services", isPublic],
     queryFn: () =>
       isPublic
-        ? getPublicServices({ categoryId: selectedCategoryId!, onlineBookableOnly: true })
-        : getServices({ categoryId: selectedCategoryId!, onlineBookableOnly: true }),
+        ? getPublicServices({ onlineBookableOnly: true })
+        : getServices({ onlineBookableOnly: true }),
   });
 
   const professionalsQuery = useQuery({
@@ -159,20 +160,64 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   });
 
   const activeServices = useMemo(
-    () =>
-      selectedCategoryId === null
-        ? []
-        : (servicesQuery.data ?? []).filter((service) => service.active),
-    [selectedCategoryId, servicesQuery.data],
+    () => (servicesQuery.data ?? []).filter((service) => service.active),
+    [servicesQuery.data],
   );
+
   const activeCategories = useMemo(
     () => (categoriesQuery.data ?? []).filter((category) => category.active),
     [categoriesQuery.data],
   );
+
   const selectedCategory =
     activeCategories.find((category) => category.id === selectedCategoryId) ?? null;
+
   const selectedService =
     activeServices.find((service) => service.id === selectedServiceId) ?? null;
+
+  const filteredServices = useMemo(() => {
+    let list = activeServices;
+
+    if (selectedCategoryId !== null) {
+      list = list.filter((service) => service.categoryId === selectedCategoryId);
+    }
+
+    if (searchTerm.trim() !== "") {
+      const normalizedSearch = searchTerm.toLowerCase();
+      list = list.filter((service) =>
+        service.name.toLowerCase().includes(normalizedSearch)
+      );
+    }
+
+    return list;
+  }, [activeServices, selectedCategoryId, searchTerm]);
+
+  const groupedServices = useMemo(() => {
+    const groups: { categoryName: string; services: ServiceCatalogItem[] }[] = [];
+
+    activeCategories.forEach((cat) => {
+      const catServices = filteredServices.filter((s) => s.categoryId === cat.id);
+      if (catServices.length > 0) {
+        groups.push({
+          categoryName: cat.name,
+          services: catServices,
+        });
+      }
+    });
+
+    const categoryIds = activeCategories.map((c) => c.id);
+    const uncategorizedServices = filteredServices.filter(
+      (s) => s.categoryId === null || !categoryIds.includes(s.categoryId)
+    );
+    if (uncategorizedServices.length > 0) {
+      groups.push({
+        categoryName: "Otros",
+        services: uncategorizedServices,
+      });
+    }
+
+    return groups;
+  }, [filteredServices, activeCategories]);
 
   const activeProfessionals = useMemo(
     () =>
@@ -189,16 +234,6 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
     [weekOffset],
   );
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
-
-  useEffect(() => {
-    setSelectedServiceId(null);
-    setSelectedProfessionalId(null);
-    setSelectedSlot(null);
-    setIsConfirmOpen(false);
-    setFormError(null);
-    setWeekOffset(0);
-    setFirstAvailableWeekOffset(null);
-  }, [selectedCategoryId]);
 
   useEffect(() => {
     setSelectedProfessionalId(null);
@@ -384,102 +419,126 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
         <div className="client-book-card">
           <div className="client-section-heading">
             <span>Paso 1</span>
-            <h2>Selecciona una categoria</h2>
-          </div>
-
-          {categoriesQuery.isLoading ? (
-            <div className="client-empty-state">
-              <strong>Cargando categorias...</strong>
-              <p>Estamos ordenando los tratamientos disponibles.</p>
-            </div>
-          ) : null}
-
-          {categoriesQuery.isError ? (
-            <div className="client-empty-state tone-danger">
-              <strong>No pudimos cargar las categorias.</strong>
-              <p>Proba recargar la pagina o intenta nuevamente en unos minutos.</p>
-            </div>
-          ) : null}
-
-          {!categoriesQuery.isLoading &&
-          !categoriesQuery.isError &&
-          activeCategories.length === 0 ? (
-            <div className="client-empty-state">
-              <strong>Todavia no hay categorias disponibles.</strong>
-              <p>Cuando BIBE habilite categorias activas, van a aparecer aca.</p>
-            </div>
-          ) : null}
-
-          {activeCategories.length > 0 ? (
-            <div className="client-service-grid">
-              {activeCategories.map((category) => (
-                <CategoryOption
-                  category={category}
-                  key={category.id}
-                  selected={category.id === selectedCategoryId}
-                  onSelect={() => setSelectedCategoryId(category.id)}
-                />
-              ))}
-            </div>
-          ) : null}
-
-          <div className="client-professional-section">
-            <div className="client-section-heading">
-              <span>Paso 2</span>
             <h2>Selecciona un servicio</h2>
           </div>
 
-          {!selectedCategory ? (
-            <div className="client-empty-state">
-              <strong>Primero selecciona una categoria.</strong>
-              <p>Despues vamos a mostrar solo sus servicios activos.</p>
+          <div className="client-service-filters" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+            {/* Buscador */}
+            <div className="client-search-wrapper">
+              <input
+                type="text"
+                className="client-search-input"
+                placeholder="Buscar servicio por nombre o descripción..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "var(--muted)",
+                    cursor: "pointer",
+                    padding: "4px"
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
-          ) : null}
 
-          {selectedCategory && servicesQuery.isLoading ? (
+            {/* Categorías (Píldoras) */}
+            {activeCategories.length > 0 && (
+              <div className="client-category-pills">
+                <button
+                  type="button"
+                  className={`client-pill-button ${selectedCategoryId === null ? "is-active" : ""}`}
+                  onClick={() => setSelectedCategoryId(null)}
+                >
+                  Todas
+                </button>
+                {activeCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={`client-pill-button ${selectedCategoryId === category.id ? "is-active" : ""}`}
+                    onClick={() => setSelectedCategoryId(category.id)}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {servicesQuery.isLoading ? (
             <div className="client-empty-state">
               <strong>Cargando servicios...</strong>
               <p>Estamos buscando los tratamientos disponibles para reserva.</p>
             </div>
           ) : null}
 
-          {selectedCategory && servicesQuery.isError ? (
+          {servicesQuery.isError ? (
             <div className="client-empty-state tone-danger">
               <strong>No pudimos cargar los servicios.</strong>
               <p>Proba recargar la pagina o intenta nuevamente en unos minutos.</p>
             </div>
           ) : null}
 
-          {selectedCategory &&
-          !servicesQuery.isLoading &&
-          !servicesQuery.isError &&
-          activeServices.length === 0 ? (
+          {!servicesQuery.isLoading && !servicesQuery.isError && activeServices.length === 0 ? (
             <div className="client-empty-state">
-              <strong>
-                No hay servicios disponibles para reserva online en esta categoria.
-              </strong>
-              <p>Consultanos para coordinar una alternativa.</p>
+              <strong>Todavia no hay servicios disponibles.</strong>
+              <p>Cuando habiliten servicios activos, van a aparecer aca.</p>
             </div>
           ) : null}
 
-          {activeServices.length > 0 ? (
-            <div className="client-service-grid">
-              {activeServices.map((service) => (
-                <ServiceOption
-                  key={service.id}
-                  service={service}
-                  selected={service.id === selectedServiceId}
-                  onSelect={() => setSelectedServiceId(service.id)}
-                />
-              ))}
-            </div>
+          {!servicesQuery.isLoading && !servicesQuery.isError && activeServices.length > 0 ? (
+            groupedServices.length === 0 ? (
+              <div className="client-empty-state">
+                <strong>No se encontraron servicios.</strong>
+                <p>Probá buscando con otro nombre o seleccionando otra categoría.</p>
+              </div>
+            ) : (
+              <div className="client-grouped-services" style={{ display: "flex", flexDirection: "column", gap: "32px", marginTop: "24px" }}>
+                {groupedServices.map((group) => (
+                  <div key={group.categoryName} className="client-service-group">
+                    <h3 className="client-group-title" style={{
+                      fontSize: "15px",
+                      fontWeight: 600,
+                      color: "var(--text)",
+                      borderLeft: "3px solid var(--primary)",
+                      paddingLeft: "10px",
+                      marginBottom: "14px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px"
+                    }}>
+                      {group.categoryName}
+                    </h3>
+                    <div className="client-service-grid">
+                      {group.services.map((service) => (
+                        <ServiceOption
+                          key={service.id}
+                          service={service}
+                          selected={service.id === selectedServiceId}
+                          onSelect={() => setSelectedServiceId(service.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : null}
-
-          </div>
 
           <div className="client-professional-section">
             <div className="client-section-heading">
-              <span>Paso 3</span>
+              <span>Paso 2</span>
               <h2>Elegi profesional</h2>
             </div>
 
@@ -533,7 +592,7 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
           <div className="client-availability-section">
             <div className="client-section-heading">
-              <span>Paso 4</span>
+              <span>Paso 3</span>
               <h2>Elegi un horario</h2>
             </div>
 
@@ -629,24 +688,11 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
           {selectedService ? (
             <div className="client-selected-service">
-              <span>Categoria seleccionada</span>
-              <strong>{selectedCategory?.name ?? "Sin categoria"}</strong>
-            </div>
-          ) : selectedCategory ? (
-            <div className="client-selected-service">
-              <span>Categoria seleccionada</span>
-              <strong>{selectedCategory.name}</strong>
-              <small>Ahora elegi un servicio de esta categoria.</small>
-            </div>
-          ) : null}
-
-          {selectedService ? (
-            <div className="client-selected-service">
               <span>Servicio seleccionado</span>
               <strong>{selectedService.name}</strong>
               <small>
-                {selectedService.durationMinutes} min
-                {selectedService.description ? ` - ${selectedService.description}` : ""}
+                {selectedService.categoryName ? `${selectedService.categoryName} | ` : ""}
+                {selectedService.durationMinutes} min | ${selectedService.price}
               </small>
             </div>
           ) : (
@@ -672,12 +718,11 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
             <div className="client-selected-service">
               <span>Horario seleccionado</span>
               <strong>{formatSlotSummary(selectedSlot)}</strong>
-              <small>El turno queda pendiente hasta que BIBE lo confirme.</small>
+              <small>El turno queda pendiente hasta que se confirme.</small>
             </div>
           ) : null}
 
           <div className="client-flow-preview">
-            <span className={selectedCategory ? "is-ready" : ""}>Categoria</span>
             <span className={selectedService ? "is-ready" : ""}>Servicio</span>
             <span className={selectedProfessional ? "is-ready" : ""}>Profesional</span>
             <span className={selectedSlot ? "is-ready" : ""}>Horario</span>
@@ -722,13 +767,13 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
             <h2 id="client-confirm-title">Revisa tu solicitud</h2>
             <p className="client-confirmation-hint">
               <Info aria-hidden="true" size={16} />
-              BIBE debe confirmar la solicitud antes de que el turno quede cerrado.
+              La solicitud debe ser confirmada por el negocio antes de que el turno quede reservado.
             </p>
 
             <dl>
                 <div>
-                  <dt>Categoria</dt>
-                  <dd>{selectedCategory?.name ?? "Sin categoria"}</dd>
+                  <dt>Categoría</dt>
+                  <dd>{selectedService.categoryName ?? "General"}</dd>
                 </div>
                 <div>
                   <dt>Servicio</dt>
@@ -782,7 +827,7 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
             ) : null}
 
             <label className="client-notes-field">
-              <span>Notas para BIBE (opcional)</span>
+              <span>Notas adicionales (opcional)</span>
               <textarea
                 maxLength={500}
                 rows={4}
@@ -835,40 +880,61 @@ function ServiceOption({
       className={`client-service-option ${selected ? "is-selected" : ""}`}
       type="button"
       onClick={onSelect}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        alignItems: "stretch",
+        minHeight: "180px",
+        padding: "16px",
+        textAlign: "left",
+        border: "1px solid rgba(143, 73, 99, 0.14)",
+        borderRadius: "12px",
+        background: "var(--surface)",
+        color: "var(--text)",
+        cursor: "pointer",
+        transition: "all 0.2s ease"
+      }}
     >
-      <span>
-        <Sparkles aria-hidden="true" size={20} />
-      </span>
-      <strong>{service.name}</strong>
-      <p>{service.description || "Tratamiento disponible para solicitar turno."}</p>
-      <small>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", flexGrow: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
+          <strong style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-strong)" }}>
+            {service.name}
+          </strong>
+          <span style={{
+            fontSize: "16px",
+            fontWeight: 700,
+            color: "var(--primary)",
+            whiteSpace: "nowrap"
+          }}>
+            ${service.price}
+          </span>
+        </div>
+        <p style={{
+          margin: 0,
+          fontSize: "13px",
+          color: "var(--muted)",
+          lineHeight: "1.4",
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden"
+        }}>
+          {service.description || "Sin descripción disponible."}
+        </p>
+      </div>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginTop: "12px",
+        fontSize: "12px",
+        fontWeight: 600,
+        color: "var(--primary-strong)"
+      }}>
         <Clock aria-hidden="true" size={14} />
-        {service.durationMinutes} minutos
-      </small>
-    </button>
-  );
-}
-
-function CategoryOption({
-  category,
-  onSelect,
-  selected,
-}: {
-  category: ServiceCategory;
-  onSelect: () => void;
-  selected: boolean;
-}) {
-  return (
-    <button
-      className={`client-service-option ${selected ? "is-selected" : ""}`}
-      type="button"
-      onClick={onSelect}
-    >
-      <span>
-        <Sparkles aria-hidden="true" size={20} />
-      </span>
-      <strong>{category.name}</strong>
-      <p>{category.description || "Categoria de tratamientos disponibles."}</p>
+        <span>{service.durationMinutes} minutos</span>
+      </div>
     </button>
   );
 }
