@@ -12,6 +12,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../../shared/api/httpClient";
+import { useActiveBusiness } from "../../../app/providers/BusinessProvider";
 import {
   cancelAppointmentByClient,
   getAppointments,
@@ -20,15 +21,18 @@ import {
 } from "../../appointments/api/appointmentsApi";
 import { formatShortDateTime } from "../../../shared/utils/date";
 
-const statusLabels: Record<AppointmentStatus, string> = {
-  PENDING: "Pendiente",
-  CONFIRMED: "Confirmado",
-  REJECTED: "Rechazado",
-  CANCELED_BY_CLIENT: "Cancelado por vos",
-  CANCELED_BY_ADMIN: "Cancelado por BIBE",
-  COMPLETED: "Completado",
-  NO_SHOW: "No asistio",
-};
+function getStatusLabel(status: AppointmentStatus, businessName: string) {
+  const statusLabels: Record<AppointmentStatus, string> = {
+    PENDING: "Pendiente",
+    CONFIRMED: "Confirmado",
+    REJECTED: "Rechazado",
+    CANCELED_BY_CLIENT: "Cancelado por vos",
+    CANCELED_BY_ADMIN: `Cancelado por ${businessName}`,
+    COMPLETED: "Completado",
+    NO_SHOW: "No asistió",
+  };
+  return statusLabels[status];
+}
 
 function getStatusTone(status: AppointmentStatus) {
   if (status === "PENDING") return "is-pending";
@@ -37,26 +41,26 @@ function getStatusTone(status: AppointmentStatus) {
   return "is-muted";
 }
 
-function getStatusMessage(status: AppointmentStatus) {
+function getStatusMessage(status: AppointmentStatus, businessName: string) {
   if (status === "PENDING") {
-    return "BIBE tiene que revisar y confirmar este horario.";
+    return "";
   }
   if (status === "CONFIRMED") {
-    return "Tu turno esta confirmado.";
+    return "Tu turno está confirmado.";
   }
   if (status === "REJECTED") {
-    return "Esta solicitud fue rechazada. Podes pedir otro turno.";
+    return "Esta solicitud fue rechazada. Podés pedir otro turno.";
   }
   if (status === "CANCELED_BY_CLIENT") {
     return "Cancelaste este turno.";
   }
   if (status === "CANCELED_BY_ADMIN") {
-    return "BIBE cancelo este turno.";
+    return `${businessName} canceló este turno.`;
   }
   if (status === "COMPLETED") {
     return "Este turno ya fue completado.";
   }
-  return "Este turno quedo marcado como no asistido.";
+  return "Este turno quedó marcado como no asistido.";
 }
 
 function isUpcoming(appointment: Appointment) {
@@ -68,10 +72,16 @@ function isUpcoming(appointment: Appointment) {
 }
 
 function canClientCancel(appointment: Appointment) {
-  return appointment.status === "PENDING" || appointment.status === "CONFIRMED";
+  const date = new Date(appointment.startDateTime).getTime();
+  return (
+    date >= Date.now() &&
+    (appointment.status === "PENDING" || appointment.status === "CONFIRMED")
+  );
 }
 
 export function ClientAppointmentsPage() {
+  const { business } = useActiveBusiness();
+  const businessName = business?.name || "el negocio";
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const queryClient = useQueryClient();
   const [showHistory, setShowHistory] = useState(false);
@@ -177,13 +187,9 @@ export function ClientAppointmentsPage() {
     <section className="client-appointments-page">
       <div className="client-book-hero">
         <div>
-          <p className="public-pill">Mis turnos</p>
-          <h1>Segui tus solicitudes.</h1>
-          <p>
-            Aca vas a ver los turnos pedidos, los confirmados por BIBE y el
-            historial cuando vayan cerrando.
-          </p>
+          <h1>Seguí tus solicitudes.</h1>
         </div>
+
         <Link className="client-primary-link" to={`/n/${businessSlug}/app/book`}>
           Pedir otro turno
           <CalendarClock aria-hidden="true" size={18} />
@@ -232,6 +238,7 @@ export function ClientAppointmentsPage() {
               icon={<CheckCircle2 aria-hidden="true" size={20} />}
               onCancel={openCancelModal}
               title="Tus proximos turnos"
+              businessName={businessName}
             />
           ) : (
             <div className="client-no-upcoming">
@@ -260,12 +267,13 @@ export function ClientAppointmentsPage() {
               {showHistory ? (
                 <div className="client-history-expanded">
                   <AppointmentSection
-                    appointments={historyAppointments}
-                    emptyText="No hay turnos anteriores en tu historial."
-                    icon={<History aria-hidden="true" size={18} />}
-                    onCancel={openCancelModal}
-                    title="Historial de turnos"
-                  />
+                  appointments={historyAppointments}
+                  emptyText="No hay historial de turnos."
+                  icon={<History aria-hidden="true" size={20} />}
+                  onCancel={openCancelModal}
+                  title="Historial de turnos"
+                  businessName={businessName}
+                />
                 </div>
               ) : null}
             </div>
@@ -418,15 +426,17 @@ function AppointmentSection({
   icon,
   onCancel,
   title,
+  businessName,
 }: {
   appointments: Appointment[];
   emptyText: string;
   icon: ReactNode;
   onCancel: (appointment: Appointment) => void;
   title: string;
+  businessName: string;
 }) {
   return (
-    <section className="client-book-card client-appointment-section">
+    <section className="client-dashboard-card client-appointment-section">
       <div className="client-section-title">
         {icon}
         <h2>{title}</h2>
@@ -441,6 +451,7 @@ function AppointmentSection({
               appointment={appointment}
               key={appointment.id}
               onCancel={onCancel}
+              businessName={businessName}
             />
           ))}
         </div>
@@ -452,9 +463,11 @@ function AppointmentSection({
 function AppointmentCard({
   appointment,
   onCancel,
+  businessName,
 }: {
   appointment: Appointment;
   onCancel: (appointment: Appointment) => void;
+  businessName: string;
 }) {
   const statusTone = getStatusTone(appointment.status);
   const cancelable = canClientCancel(appointment);
@@ -470,13 +483,15 @@ function AppointmentCard({
           ) : (
             <XCircle aria-hidden="true" size={14} />
           )}
-          {statusLabels[appointment.status]}
+          {getStatusLabel(appointment.status, businessName)}
         </span>
         <h3>{appointment.serviceName}</h3>
         <p>{formatShortDateTime(appointment.startDateTime)}</p>
-        <small className="client-status-message">
-          {getStatusMessage(appointment.status)}
-        </small>
+        {getStatusMessage(appointment.status, businessName) ? (
+          <small className="client-status-message">
+            {getStatusMessage(appointment.status, businessName)}
+          </small>
+        ) : null}
       </div>
 
       <dl>
@@ -484,10 +499,12 @@ function AppointmentCard({
           <dt>Profesional</dt>
           <dd>{appointment.professionalName}</dd>
         </div>
-        <div>
-          <dt>Notas</dt>
-          <dd>{appointment.notes || "Sin notas"}</dd>
-        </div>
+        {appointment.notes && (
+          <div>
+            <dt>Notas</dt>
+            <dd>{appointment.notes}</dd>
+          </div>
+        )}
       </dl>
 
       {cancelable ? (

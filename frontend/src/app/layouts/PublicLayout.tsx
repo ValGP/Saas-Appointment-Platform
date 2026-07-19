@@ -157,7 +157,7 @@ export function PublicLayout() {
         <Outlet />
       </main>
 
-      {waNumber && (
+      {waNumber && !location.pathname.endsWith("/book") && (
         <a
           href={`https://wa.me/${waNumber}`}
           className="whatsapp-float-btn"

@@ -11,6 +11,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ApiError } from "../../../shared/api/httpClient";
 import { updateCurrentUser } from "../../auth/api/authApi";
 import { useAuth } from "../../auth/context/AuthProvider";
+import { useActiveBusiness } from "../../../app/providers/BusinessProvider";
 
 function getInitials(fullName?: string) {
   return (
@@ -25,6 +26,8 @@ function getInitials(fullName?: string) {
 }
 
 export function ClientProfilePage() {
+  const { business } = useActiveBusiness();
+  const businessName = business?.name || "el negocio";
   const { refreshUser, user } = useAuth();
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const [fullName, setFullName] = useState(user?.fullName ?? "");
@@ -105,32 +108,11 @@ export function ClientProfilePage() {
     <section className="client-profile-page">
       <div className="client-book-hero">
         <div>
-          <p className="public-pill">Mi perfil</p>
           <h1>Tus datos de cuenta.</h1>
-          <p>
-            Esta informacion ayuda a identificar tus solicitudes y mantener el
-            contacto con BIBE cuando pedis un turno.
-          </p>
         </div>
-        <button
-          className="client-secondary-action"
-          type="button"
-          onClick={() => void refreshUser()}
-        >
-          Actualizar datos
-        </button>
       </div>
 
       <div className="client-profile-grid">
-        <article className="client-profile-card client-profile-identity">
-          <div className="client-profile-avatar">{initials}</div>
-          <div>
-            <span>Cliente</span>
-            <h2>{user?.fullName ?? "Cliente BIBE"}</h2>
-            <p>{user?.email ?? "Email no disponible"}</p>
-          </div>
-        </article>
-
         <article className="client-profile-card">
           <div className="client-section-title">
             <UserRound aria-hidden="true" size={20} />
@@ -157,6 +139,7 @@ export function ClientProfilePage() {
             </div>
           </dl>
         </article>
+
 
         <article className="client-profile-card client-profile-next">
           <span>Mis datos</span>

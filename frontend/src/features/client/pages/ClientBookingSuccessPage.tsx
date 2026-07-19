@@ -9,6 +9,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { type Appointment } from "../../appointments/api/appointmentsApi";
 import { formatShortDateTime, formatTime } from "../../../shared/utils/date";
 import { useAuth } from "../../auth/context/AuthProvider";
+import { useActiveBusiness } from "../../../app/providers/BusinessProvider";
 
 type BookingSuccessState = {
   appointment?: Appointment;
@@ -20,6 +21,8 @@ export function ClientBookingSuccessPage() {
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const appointment = (location.state as BookingSuccessState | null)?.appointment;
   const isGuest = !user;
+  const { business } = useActiveBusiness();
+  const businessName = business?.name || "el negocio";
   const bookPath = isGuest ? `/n/${businessSlug}` : `/n/${businessSlug}/app/book`;
 
   if (!appointment) {
@@ -58,14 +61,7 @@ export function ClientBookingSuccessPage() {
         <div className="client-result-icon">
           <CheckCircle2 aria-hidden="true" size={36} />
         </div>
-        <p className="public-pill">Solicitud enviada</p>
-        <h1>Tu turno fue enviado a confirmar.</h1>
-        <p>
-          {isGuest 
-            ? "El negocio va a revisar tu solicitud y confirmar el horario. Te enviamos un correo electrónico de confirmación con los detalles." 
-            : "BIBE va a revisar la solicitud y confirmar el horario. Mientras tanto, podes seguir el estado desde `Mis turnos`."
-          }
-        </p>
+        <h1>Turno reservado</h1>
 
         <div className="client-result-summary">
           <div>
@@ -82,15 +78,9 @@ export function ClientBookingSuccessPage() {
             <Clock aria-hidden="true" size={18} />
             <span>Dia y horario</span>
             <strong>
-              {formatShortDateTime(appointment.startDateTime)} -{" "}
-              {formatTime(appointment.endDateTime)}
+              {formatShortDateTime(appointment.startDateTime)}
             </strong>
           </div>
-        </div>
-
-        <div className="client-result-note">
-          <span>Estado actual</span>
-          <strong>Pendiente de confirmacion</strong>
         </div>
 
         <div className="client-result-actions">
@@ -105,5 +95,6 @@ export function ClientBookingSuccessPage() {
         </div>
       </div>
     </section>
+
   );
 }

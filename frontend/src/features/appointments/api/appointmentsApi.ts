@@ -128,11 +128,11 @@ export function markAppointmentNoShow(id: number) {
 
 export type PublicBookingPayload = {
   serviceId: number;
-  professionalId: number;
+  professionalId?: number;
   startDateTime: string;
-  clientName: string;
-  clientEmail: string;
-  clientPhone?: string;
+  fullName: string;
+  email: string;
+  phone?: string;
   notes?: string;
 };
 
@@ -142,4 +142,3 @@ export function createPublicAppointment(payload: PublicBookingPayload) {
     body: payload,
   });
 }
-

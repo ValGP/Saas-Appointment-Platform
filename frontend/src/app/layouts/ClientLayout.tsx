@@ -1,10 +1,12 @@
-import { CalendarCheck, Clock, LogOut, Menu, UserRound, X } from "lucide-react";
+import { CalendarCheck, Clock, LogOut, Menu, Sparkles, UserRound, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useParams } from "react-router-dom";
 import { useAuth } from "../../features/auth/context/AuthProvider";
+import { useActiveBusiness } from "../providers/BusinessProvider";
 
 export function ClientLayout() {
   const { logout, user } = useAuth();
+  const { business } = useActiveBusiness();
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const initials =
@@ -28,11 +30,34 @@ export function ClientLayout() {
       ) : null}
 
       <header className="client-header">
-        <NavLink className="client-brand" to={`/n/${businessSlug}/app/book`} aria-label="Cliente">
-          <span className="brand-logo">
-            <img alt="" src="/icon/blanco.png" />
+        <NavLink
+          className="client-brand"
+          to={`/n/${businessSlug}/app/book`}
+          style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", color: "var(--text)" }}
+        >
+          <span
+            className="brand-logo"
+            style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              background: "var(--primary)",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              fontSize: "16px",
+              boxShadow: "0 4px 10px rgba(0, 0, 0, 0.06)"
+            }}
+          >
+            {business?.name ? business.name[0].toUpperCase() : "T"}
           </span>
+          <strong style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-strong)" }}>
+            {business?.name || "TurnoFácil"}
+          </strong>
         </NavLink>
+
 
         <nav
           className={`client-nav ${isMenuOpen ? "is-open" : ""}`}
@@ -50,6 +75,19 @@ export function ClientLayout() {
             <UserRound aria-hidden="true" size={18} />
             Perfil
           </NavLink>
+
+          {/* mobile-only cerrar sesión option */}
+          <button
+            type="button"
+            className="client-nav-logout-mobile"
+            onClick={() => {
+              setIsMenuOpen(false);
+              logout();
+            }}
+          >
+            <LogOut aria-hidden="true" size={18} />
+            Cerrar Sesión
+          </button>
         </nav>
 
         <div className="client-user">
@@ -58,7 +96,12 @@ export function ClientLayout() {
             <small>{user?.email}</small>
           </div>
           <span className="client-avatar">{initials}</span>
-          <button type="button" onClick={logout} aria-label="Cerrar sesion">
+          <button
+            className="client-logout-btn"
+            type="button"
+            onClick={logout}
+            aria-label="Cerrar sesion"
+          >
             <LogOut aria-hidden="true" size={18} />
           </button>
           <button
@@ -82,3 +125,4 @@ export function ClientLayout() {
     </div>
   );
 }
+

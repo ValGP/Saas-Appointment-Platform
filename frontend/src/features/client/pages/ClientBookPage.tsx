@@ -5,12 +5,13 @@ import {
   ChevronRight,
   Clock,
   Info,
+  MoreHorizontal,
   Search,
   Sparkles,
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../shared/api/httpClient";
@@ -27,6 +28,8 @@ import {
 import {
   getAvailability,
   getPublicAvailability,
+  getAvailableSlots,
+  getPublicAvailableSlots,
   type AvailabilitySlot,
 } from "../../availability/api/availabilityApi";
 import {
@@ -80,11 +83,18 @@ function getWeekDays(weekStart: Date): DayModel[] {
 
 function formatWeekRange(weekStart: Date) {
   const weekEnd = addDays(weekStart, 6);
-  const formatter = new Intl.DateTimeFormat("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-  });
-  return `${formatter.format(weekStart)} al ${formatter.format(weekEnd)}`;
+  const fmtDay = new Intl.DateTimeFormat("es-AR", { day: "numeric" });
+  const fmtDayMonth = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" });
+  return `${fmtDay.format(weekStart)} – ${fmtDayMonth.format(weekEnd)}`;
+}
+
+function getDayLabel(date: Date): string {
+  const todayKey = toDateKey(new Date());
+  const tomorrowKey = toDateKey(addDays(new Date(), 1));
+  const key = toDateKey(date);
+  if (key === todayKey) return "Hoy";
+  if (key === tomorrowKey) return "Mañana";
+  return new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "short" }).format(date);
 }
 
 function formatSlotSummary(slot: AvailabilitySlot) {
@@ -94,25 +104,30 @@ function formatSlotSummary(slot: AvailabilitySlot) {
     month: "short",
   }).format(new Date(slot.startDateTime));
 
-  return `${day}, ${formatTime(slot.startDateTime)} a ${formatTime(slot.endDateTime)}`;
+  return `${day}, ${formatTime(slot.startDateTime)}`;
 }
 
 function getCreateErrorMessage(error: unknown) {
   if (!(error instanceof ApiError)) {
-    return "No pudimos solicitar el turno. Proba nuevamente en unos minutos.";
+    return "No pudimos solicitar el turno. Probá nuevamente en unos minutos.";
   }
 
   const message = error.message.toLowerCase();
 
   if (message.includes("overlap") || message.includes("availability")) {
-    return "Ese horario dejo de estar disponible. Elegi otro turno y volve a intentarlo.";
+    return "Ese horario dejó de estar disponible. Elegí otro turno y volvé a intentarlo.";
   }
 
   if (message.includes("inactive")) {
-    return "El servicio, profesional o cliente ya no esta disponible para nuevos turnos.";
+    return "El servicio, profesional o cliente ya no está disponible para nuevos turnos.";
   }
 
-  return error.message || "No pudimos solicitar el turno. Proba nuevamente.";
+  let friendlyMsg = error.message;
+  friendlyMsg = friendlyMsg.replace(/email: email is required/gi, "El correo electrónico es obligatorio.");
+  friendlyMsg = friendlyMsg.replace(/fullName: fullName is required/gi, "El nombre completo es obligatorio.");
+  friendlyMsg = friendlyMsg.replace(/email: Invalid email format/gi, "El formato de correo electrónico es inválido.");
+
+  return friendlyMsg || "No pudimos solicitar el turno. Probá nuevamente.";
 }
 
 export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
@@ -122,7 +137,7 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | "any" | null>(
     null,
   );
   const [weekOffset, setWeekOffset] = useState(0);
@@ -136,6 +151,24 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
+  const [isMobileSummaryOpen, setIsMobileSummaryOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const categoriesQuery = useQuery({
     queryKey: ["client-service-categories", isPublic],
@@ -169,8 +202,18 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
     [categoriesQuery.data],
   );
 
+  const filteredCategories = useMemo(() => {
+    return activeCategories.filter(
+      (c) =>
+        c.name.toLowerCase() !== "sin categoria" &&
+        c.name.toLowerCase() !== "sin categoría" &&
+        c.name.toLowerCase() !== "sin categorias" &&
+        c.name.toLowerCase() !== "sin categorías"
+    );
+  }, [activeCategories]);
+
   const selectedCategory =
-    activeCategories.find((category) => category.id === selectedCategoryId) ?? null;
+    filteredCategories.find((category) => category.id === selectedCategoryId) ?? null;
 
   const selectedService =
     activeServices.find((service) => service.id === selectedServiceId) ?? null;
@@ -195,7 +238,19 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   const groupedServices = useMemo(() => {
     const groups: { categoryName: string; services: ServiceCatalogItem[] }[] = [];
 
-    activeCategories.forEach((cat) => {
+    // "Sin categoría" goes first
+    const categoryIds = filteredCategories.map((c) => c.id);
+    const uncategorizedServices = filteredServices.filter(
+      (s) => s.categoryId === null || !categoryIds.includes(s.categoryId)
+    );
+    if (uncategorizedServices.length > 0) {
+      groups.push({
+        categoryName: "Sin categoría",
+        services: uncategorizedServices,
+      });
+    }
+
+    filteredCategories.forEach((cat) => {
       const catServices = filteredServices.filter((s) => s.categoryId === cat.id);
       if (catServices.length > 0) {
         groups.push({
@@ -205,29 +260,27 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
       }
     });
 
-    const categoryIds = activeCategories.map((c) => c.id);
-    const uncategorizedServices = filteredServices.filter(
-      (s) => s.categoryId === null || !categoryIds.includes(s.categoryId)
-    );
-    if (uncategorizedServices.length > 0) {
-      groups.push({
-        categoryName: "Otros",
-        services: uncategorizedServices,
-      });
-    }
-
     return groups;
-  }, [filteredServices, activeCategories]);
+  }, [filteredServices, filteredCategories]);
 
   const activeProfessionals = useMemo(
     () =>
       (professionalsQuery.data ?? []).filter((professional) => professional.active),
     [professionalsQuery.data],
   );
-  const selectedProfessional =
-    activeProfessionals.find(
+  const selectedProfessional = useMemo(() => {
+    if (selectedProfessionalId === "any") {
+      return {
+        id: 0,
+        fullName: "Cualquiera disponible",
+        email: "Asignación automática",
+        active: true,
+      } as any;
+    }
+    return activeProfessionals.find(
       (professional) => professional.id === selectedProfessionalId,
     ) ?? null;
+  }, [activeProfessionals, selectedProfessionalId]);
 
   const weekStart = useMemo(
     () => addDays(currentWeekStart, weekOffset * 7),
@@ -236,30 +289,36 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
 
   useEffect(() => {
-    setSelectedProfessionalId(null);
-    setSelectedSlot(null);
-    setIsConfirmOpen(false);
-    setFormError(null);
-    setWeekOffset(0);
-    setFirstAvailableWeekOffset(null);
-  }, [selectedServiceId]);
-
-  useEffect(() => {
-    if (activeProfessionals.length === 1 && selectedProfessionalId === null) {
-      setSelectedProfessionalId(activeProfessionals[0].id);
+    if (selectedServiceId === null) {
+      setSelectedProfessionalId(null);
+      return;
     }
-  }, [activeProfessionals, selectedProfessionalId]);
+
+    if (!professionalsQuery.isLoading && professionalsQuery.data) {
+      const activeList = professionalsQuery.data.filter((p) => p.active);
+      if (activeList.length === 1) {
+        setSelectedProfessionalId(activeList[0].id);
+      } else {
+        setSelectedProfessionalId(null);
+      }
+    }
+  }, [selectedServiceId, professionalsQuery.isLoading, professionalsQuery.data]);
 
   useEffect(() => {
     setWeekOffset(0);
     setFirstAvailableWeekOffset(null);
+    setSelectedDateKey(null);
   }, [selectedProfessionalId]);
 
   useEffect(() => {
     setSelectedSlot(null);
     setIsConfirmOpen(false);
     setFormError(null);
-  }, [selectedProfessionalId, weekOffset]);
+  }, [selectedProfessionalId, selectedDateKey, weekOffset]);
+
+  useEffect(() => {
+    setSelectedDateKey(null);
+  }, [weekOffset]);
 
   const availabilityQueries = useQueries({
     queries: weekDays.map((day) => ({
@@ -271,18 +330,20 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
         isPublic,
       ],
       enabled: selectedProfessionalId !== null && selectedServiceId !== null,
-      queryFn: () =>
-        isPublic
-          ? getPublicAvailability({
-              professionalId: selectedProfessionalId!,
+      queryFn: () => {
+        const profId = selectedProfessionalId === "any" ? undefined : (selectedProfessionalId as number);
+        return isPublic
+          ? getPublicAvailableSlots({
               serviceId: selectedServiceId!,
               date: day.dateKey,
+              professionalId: profId,
             })
-          : getAvailability({
-              professionalId: selectedProfessionalId!,
+          : getAvailableSlots({
               serviceId: selectedServiceId!,
               date: day.dateKey,
-            }),
+              professionalId: profId,
+            });
+      },
     })),
   });
 
@@ -329,6 +390,34 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
     firstAvailableWeekOffset,
   ]);
 
+  useEffect(() => {
+    if (selectedDateKey === null && availableSlotCount > 0) {
+      const dayWithSlots = weekDays.find((day) => (availabilityByDay[day.dateKey] ?? []).length > 0);
+      if (dayWithSlots) {
+        setSelectedDateKey(dayWithSlots.dateKey);
+      }
+    }
+  }, [availableSlotCount, weekDays, availabilityByDay, selectedDateKey]);
+
+  const handleOpenCalendar = () => {
+    // Seed calendar to selected date month, or today
+    const seed = selectedDateKey ? new Date(selectedDateKey + "T00:00:00") : new Date();
+    setCalendarMonth(new Date(seed.getFullYear(), seed.getMonth(), 1));
+    setIsCalendarOpen(true);
+  };
+
+  const handleCalendarSelect = (dateKey: string) => {
+    const selectedDate = new Date(dateKey + "T00:00:00");
+    const diffTime = selectedDate.getTime() - currentWeekStart.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const newOffset = Math.floor(diffDays / 7);
+    if (newOffset >= 0 && newOffset <= 8) {
+      setWeekOffset(newOffset);
+    }
+    setSelectedDateKey(dateKey);
+    setIsCalendarOpen(false);
+  };
+
   const createMutation = useMutation({
     mutationFn: (payload: any) =>
       isPublic
@@ -359,29 +448,32 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
     setFormError(null);
 
+    const payloadProfessionalId = selectedProfessional.id === 0 ? undefined : selectedProfessional.id;
+
     if (isPublic) {
       if (!guestName.trim() || !guestEmail.trim()) {
         setFormError("Por favor ingresa tu nombre y email.");
         return;
       }
       createMutation.mutate({
-        professionalId: selectedProfessional.id,
+        professionalId: payloadProfessionalId,
         serviceId: selectedService.id,
         startDateTime: selectedSlot.startDateTime,
-        clientName: guestName.trim(),
-        clientEmail: guestEmail.trim(),
-        clientPhone: guestPhone.trim() || undefined,
+        fullName: guestName.trim(),
+        email: guestEmail.trim(),
+        phone: guestPhone.trim() || undefined,
         notes: notes.trim() || undefined,
       });
     } else {
       createMutation.mutate({
-        professionalId: selectedProfessional.id,
+        professionalId: payloadProfessionalId,
         serviceId: selectedService.id,
         startDateTime: selectedSlot.startDateTime,
         notes: notes.trim() || undefined,
       });
     }
   }
+
 
   function handleSelectSlot(slot: AvailabilitySlot) {
     setSelectedSlot(slot);
@@ -400,29 +492,32 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
   return (
     <section className="client-book-page">
-      <div className="client-book-hero">
-        <div>
-          <p className="public-pill">Reservar turno</p>
-          <h1>Elegi el servicio para empezar.</h1>
-          <p>
-            Selecciona tratamiento, profesional y horario. La solicitud queda
-            pendiente hasta que BIBE confirme el turno.
-          </p>
-        </div>
-        <div className="client-book-status">
-          <Sparkles aria-hidden="true" size={22} />
-          <span>Solicitud simple, confirmacion administrativa.</span>
-        </div>
-      </div>
-
       <div className="client-book-grid">
         <div className="client-book-card">
+          {/* Top progress indicator (visible on mobile only) */}
+          <div className="client-mobile-progress">
+            <div className={`progress-step ${selectedService ? "is-done" : "is-active"}`}>
+              <span className="step-badge">{selectedService ? "✓" : "1"}</span>
+              <span className="step-text">Servicio</span>
+            </div>
+            <div className="progress-divider" />
+            <div className={`progress-step ${!selectedService ? "is-locked" : selectedProfessional ? "is-done" : "is-active"}`}>
+              <span className="step-badge">{selectedProfessional ? "✓" : "2"}</span>
+              <span className="step-text">Profesional</span>
+            </div>
+            <div className="progress-divider" />
+            <div className={`progress-step ${!selectedProfessional ? "is-locked" : selectedSlot ? "is-done" : "is-active"}`}>
+              <span className="step-badge">{selectedSlot ? "✓" : "3"}</span>
+              <span className="step-text">Horario</span>
+            </div>
+          </div>
+
           <div className="client-section-heading">
             <span>Paso 1</span>
             <h2>Selecciona un servicio</h2>
           </div>
 
-          <div className="client-service-filters" style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+          <div className="client-service-filters" style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "14px" }}>
             {/* Buscador */}
             <div className="client-search-wrapper">
               <input
@@ -453,9 +548,9 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
               )}
             </div>
 
-            {/* Categorías (Píldoras) */}
-            {activeCategories.length > 0 && (
-              <div className="client-category-pills">
+            {/* Categorías (Todas + seleccionada + botón de puntos) */}
+            {filteredCategories.length > 0 && (
+              <div className="client-category-bar">
                 <button
                   type="button"
                   className={`client-pill-button ${selectedCategoryId === null ? "is-active" : ""}`}
@@ -463,16 +558,48 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
                 >
                   Todas
                 </button>
-                {activeCategories.map((category) => (
+
+                {selectedCategoryId !== null && selectedCategory && (
                   <button
-                    key={category.id}
                     type="button"
-                    className={`client-pill-button ${selectedCategoryId === category.id ? "is-active" : ""}`}
-                    onClick={() => setSelectedCategoryId(category.id)}
+                    className="client-pill-button is-active"
+                    onClick={() => setSelectedCategoryId(null)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
                   >
-                    {category.name}
+                    {selectedCategory.name}
+                    <X size={13} />
                   </button>
-                ))}
+                )}
+
+                <div className="client-category-dropdown-wrapper" ref={dropdownRef} style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    className={`client-dots-button ${selectedCategoryId !== null ? "has-selection" : ""}`}
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    title="Ver categorías"
+                    aria-label="Ver categorías"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+
+                  {isDropdownOpen && (
+                    <div className="client-category-dropdown-panel">
+                      {filteredCategories.map((category) => (
+                        <button
+                          key={category.id}
+                          type="button"
+                          className={`dropdown-item ${selectedCategoryId === category.id ? "is-selected" : ""}`}
+                          onClick={() => {
+                            setSelectedCategoryId(category.id);
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          {category.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -505,21 +632,23 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
                 <p>Probá buscando con otro nombre o seleccionando otra categoría.</p>
               </div>
             ) : (
-              <div className="client-grouped-services" style={{ display: "flex", flexDirection: "column", gap: "32px", marginTop: "24px" }}>
+              <div className="client-grouped-services" style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "8px" }}>
                 {groupedServices.map((group) => (
                   <div key={group.categoryName} className="client-service-group">
-                    <h3 className="client-group-title" style={{
-                      fontSize: "15px",
-                      fontWeight: 600,
-                      color: "var(--text)",
-                      borderLeft: "3px solid var(--primary)",
-                      paddingLeft: "10px",
-                      marginBottom: "14px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px"
-                    }}>
-                      {group.categoryName}
-                    </h3>
+                    {group.categoryName !== "Sin categoría" && (
+                      <h3 className="client-group-title" style={{
+                        fontSize: "15px",
+                        fontWeight: 600,
+                        color: "var(--text)",
+                        borderLeft: "3px solid var(--primary)",
+                        paddingLeft: "10px",
+                        marginBottom: "8px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px"
+                      }}>
+                        {group.categoryName}
+                      </h3>
+                    )}
                     <div className="client-service-grid">
                       {group.services.map((service) => (
                         <ServiceOption
@@ -578,6 +707,19 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
             {activeProfessionals.length > 0 ? (
               <div className="client-professional-grid">
+                {activeProfessionals.length > 1 && (
+                  <button
+                    className={`client-professional-option ${selectedProfessionalId === "any" ? "is-selected" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedProfessionalId("any")}
+                  >
+                    <span>
+                      <Sparkles aria-hidden="true" size={18} />
+                    </span>
+                    <strong>Cualquiera disponible</strong>
+                    <small>Se asignará el profesional disponible</small>
+                  </button>
+                )}
                 {activeProfessionals.map((professional) => (
                   <ProfessionalOption
                     key={professional.id}
@@ -593,12 +735,12 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
           <div className="client-availability-section">
             <div className="client-section-heading">
               <span>Paso 3</span>
-              <h2>Elegi un horario</h2>
+              <h2>Elegi una fecha</h2>
             </div>
 
             {!hasAvailabilitySelection ? (
               <div className="client-empty-state">
-                <strong>Selecciona servicio y profesional para ver horarios.</strong>
+                <strong>Selecciona servicio y profesional para ver fechas.</strong>
                 <p>
                   La disponibilidad se calcula con la agenda real, por eso aparece
                   despues de completar los pasos anteriores.
@@ -608,126 +750,248 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
             {hasAvailabilitySelection ? (
               <>
-                <div className="client-week-toolbar">
+                {/* Desktop week navigation */}
+                <div className="client-week-nav">
                   <button
                     type="button"
+                    className="client-week-nav-btn"
                     onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
                     disabled={weekOffset <= (firstAvailableWeekOffset ?? 0)}
                     aria-label="Ver semana anterior"
                   >
-                    <ChevronLeft aria-hidden="true" size={18} />
+                    <ChevronLeft aria-hidden="true" size={16} />
                   </button>
-                  <div>
-                    <span>Semana visible</span>
-                    <strong>{formatWeekRange(weekStart)}</strong>
-                    <small>
-                      {weekOffset === 0
-                        ? "Semana actual"
-                        : weekOffset === 1
-                          ? "Semana proxima"
-                          : `En ${weekOffset} semanas`}
-                    </small>
-                  </div>
+                  <span className="client-week-nav-label">
+                    {formatWeekRange(weekStart)}
+                  </span>
                   <button
                     type="button"
+                    className="client-week-nav-btn"
                     onClick={() => setWeekOffset((w) => Math.min(8, w + 1))}
                     disabled={weekOffset >= 8}
                     aria-label="Ver semana siguiente"
                   >
-                    <ChevronRight aria-hidden="true" size={18} />
+                    <ChevronRight aria-hidden="true" size={16} />
                   </button>
                 </div>
 
+                {/* Desktop: 7 day cards — days without slots are disabled */}
+                <div className="client-week-card-grid">
+                  {weekDays.map((day) => {
+                    const todayDate = new Date(toDateKey(new Date()) + "T00:00:00");
+                    const isPast = day.date < todayDate;
+                    const slots = availabilityByDay[day.dateKey] ?? [];
+                    const hasSlots = slots.length > 0;
+                    const isDisabled = isPast || (!isAvailabilityLoading && !hasSlots);
+                    const isSelected = selectedDateKey === day.dateKey;
+                    return (
+                      <button
+                        key={day.dateKey}
+                        type="button"
+                        className={`client-day-card-btn${isSelected ? " is-selected" : ""}${isDisabled ? " is-disabled" : ""}`}
+                        disabled={isDisabled}
+                        onClick={() => setSelectedDateKey(day.dateKey)}
+                      >
+                        <span className="day-name">
+                          {new Intl.DateTimeFormat("es-AR", { weekday: "short" }).format(day.date).replace(".", "")}
+                        </span>
+                        <strong className="day-num">{day.date.getDate()}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile: only next 3 days WITH available slots */}
+                {(() => {
+                  const todayDate = new Date(toDateKey(new Date()) + "T00:00:00");
+                  const mobileDays = weekDays
+                    .filter((day) => {
+                      if (day.date < todayDate) return false;
+                      const slots = availabilityByDay[day.dateKey] ?? [];
+                      return !isAvailabilityLoading && slots.length > 0;
+                    })
+                    .slice(0, 3);
+
+                  if (isAvailabilityLoading) {
+                    return (
+                      <div className="client-day-list">
+                        <div className="client-day-list-row" style={{ justifyContent: "center", color: "var(--muted)", fontSize: "0.85rem" }}>
+                          Buscando disponibilidad...
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (mobileDays.length === 0) return null;
+
+                  return (
+                    <div className="client-day-list">
+                      {mobileDays.map((day) => {
+                        const isSelected = selectedDateKey === day.dateKey;
+                        return (
+                          <button
+                            key={day.dateKey}
+                            type="button"
+                            className={`client-day-list-row${isSelected ? " is-selected" : ""}`}
+                            onClick={() => setSelectedDateKey(day.dateKey)}
+                          >
+                            <span className="row-label">{getDayLabel(day.date)}</span>
+                            <ChevronRight aria-hidden="true" size={16} className="row-chevron" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Loading / Error / Empty states (desktop only — mobile handles its own) */}
                 {isAvailabilityLoading ? (
-                  <div className="client-empty-state">
-                    <strong>Cargando horarios...</strong>
-                    <p>Estamos revisando la semana seleccionada.</p>
-                  </div>
+                  <div className="client-empty-state" style={{ display: "none" }} aria-hidden="true" />
                 ) : null}
 
                 {isAvailabilityError ? (
                   <div className="client-empty-state tone-danger">
                     <strong>No pudimos cargar la disponibilidad.</strong>
-                    <p>Proba nuevamente o elegi otra combinacion.</p>
+                    <p>Probá nuevamente o elegí otra combinación.</p>
                   </div>
                 ) : null}
 
-                {!isAvailabilityLoading &&
-                !isAvailabilityError &&
-                availableSlotCount === 0 ? (
+                {!isAvailabilityLoading && !isAvailabilityError && availableSlotCount === 0 ? (
                   <div className="client-empty-state">
                     <strong>No hay horarios disponibles esta semana.</strong>
-                    <p>
-                      Proba buscando en las siguientes semanas usando la flecha.
-                      Si tampoco hay horarios, consultanos para coordinar una alternativa.
-                    </p>
+                    <p>Usá las flechas para ver otras semanas.</p>
                   </div>
                 ) : null}
 
-                {!isAvailabilityLoading && !isAvailabilityError ? (
-                  <div className="client-week-grid" aria-label="Disponibilidad semanal">
-                    {weekDays.map((day) => (
-                      <DayAvailability
-                        key={day.dateKey}
-                        day={day}
-                        selectedSlot={selectedSlot}
-                        slots={availabilityByDay[day.dateKey] ?? []}
-                        onSelectSlot={handleSelectSlot}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+
+                {/* "Elegir otra fecha" trigger */}
+                <button
+                  type="button"
+                  className="client-cal-trigger"
+                  onClick={handleOpenCalendar}
+                >
+                  <CalendarDays size={14} />
+                  <span>Elegir otra fecha</span>
+                </button>
+
+                {/* Slots section */}
+                {selectedDateKey && !isAvailabilityLoading && !isAvailabilityError && (() => {
+                  const slots = availabilityByDay[selectedDateKey] ?? [];
+                  const selectedDay = weekDays.find((d) => d.dateKey === selectedDateKey);
+                  const dayLabel = selectedDay
+                    ? new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long" }).format(selectedDay.date)
+                    : selectedDateKey;
+
+                  return (
+                    <div>
+                      <div className="client-slots-header">
+                        <h3>Horarios para</h3>
+                        <span style={{ textTransform: "capitalize" }}>{dayLabel}</span>
+                      </div>
+                      {slots.length === 0 ? (
+                        <div className="client-empty-state">
+                          <strong>Sin horarios disponibles para este día.</strong>
+                          <p>Seleccioná otro día o usá las flechas para ver más fechas.</p>
+                        </div>
+                      ) : (
+                        <div className="client-slot-grid">
+                          {slots.map((slot) => {
+                            const isSelected = selectedSlot?.startDateTime === slot.startDateTime;
+                            return (
+                              <button
+                                key={slot.startDateTime}
+                                type="button"
+                                className={`client-slot-btn${isSelected ? " is-selected" : ""}`}
+                                onClick={() => handleSelectSlot(slot)}
+                              >
+                                {formatTime(slot.startDateTime)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             ) : null}
+
           </div>
         </div>
 
-        <aside className="client-next-panel">
-          <p className="public-pill">Tu solicitud</p>
-          <h2>Resumen inicial</h2>
 
-          {selectedService ? (
-            <div className="client-selected-service">
-              <span>Servicio seleccionado</span>
-              <strong>{selectedService.name}</strong>
-              <small>
-                {selectedService.categoryName ? `${selectedService.categoryName} | ` : ""}
-                {selectedService.durationMinutes} min | ${selectedService.price}
-              </small>
+        <aside className="client-next-panel">
+          {/* Progress checklist */}
+          <div className="cpanel-checklist">
+            <div className={`cpanel-step ${selectedService ? "is-done" : "is-active"}`}>
+              <span className="cpanel-step-indicator">
+                {selectedService ? "✓" : "1"}
+              </span>
+              <div className="cpanel-step-body">
+                <strong>Servicio</strong>
+                {selectedService ? (
+                  <span>{selectedService.name}</span>
+                ) : (
+                  <span className="cpanel-step-hint">Elegí un servicio para continuar</span>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="client-empty-summary">
-              <CalendarDays aria-hidden="true" size={24} />
-              <strong>Selecciona un servicio para continuar.</strong>
-              <p>
-                Este panel va a mostrar profesional, disponibilidad y horario a
-                medida que avances.
-              </p>
+
+            <div className={`cpanel-step ${!selectedService ? "is-locked" : selectedProfessional ? "is-done" : "is-active"}`}>
+              <span className="cpanel-step-indicator">
+                {selectedProfessional ? "✓" : "2"}
+              </span>
+              <div className="cpanel-step-body">
+                <strong>Profesional</strong>
+                {selectedProfessional ? (
+                  <span>{selectedProfessional.fullName}</span>
+                ) : (
+                  <span className="cpanel-step-hint">
+                    {selectedService ? "Elegí un profesional" : "Primero elegí un servicio"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={`cpanel-step ${!selectedProfessional ? "is-locked" : selectedSlot ? "is-done" : "is-active"}`}>
+              <span className="cpanel-step-indicator">
+                {selectedSlot ? "✓" : "3"}
+              </span>
+              <div className="cpanel-step-body">
+                <strong>Fecha y horario</strong>
+                {selectedSlot ? (
+                  <span>{formatSlotSummary(selectedSlot)}</span>
+                ) : (
+                  <span className="cpanel-step-hint">
+                    {selectedProfessional ? "Elegí una fecha y horario" : "Primero elegí un profesional"}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Summary card — only visible once there's something to show */}
+          {(selectedProfessional || selectedSlot) && (
+            <div className="cpanel-summary">
+              {selectedProfessional && (
+                <div className="cpanel-summary-row">
+                  <span>Profesional</span>
+                  <strong>{selectedProfessional.fullName}</strong>
+                </div>
+              )}
+              {selectedSlot && (
+                <div className="cpanel-summary-row">
+                  <span>Turno</span>
+                  <strong style={{ textTransform: "capitalize" }}>
+                    {new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" })
+                      .format(new Date(selectedSlot.startDateTime))}
+                    {" · "}
+                    {formatTime(selectedSlot.startDateTime)}
+                  </strong>
+                </div>
+              )}
             </div>
           )}
-
-          {selectedProfessional ? (
-            <div className="client-selected-service">
-              <span>Profesional seleccionado</span>
-              <strong>{selectedProfessional.fullName}</strong>
-              <small>{selectedProfessional.email}</small>
-            </div>
-          ) : null}
-
-          {selectedSlot ? (
-            <div className="client-selected-service">
-              <span>Horario seleccionado</span>
-              <strong>{formatSlotSummary(selectedSlot)}</strong>
-              <small>El turno queda pendiente hasta que se confirme.</small>
-            </div>
-          ) : null}
-
-          <div className="client-flow-preview">
-            <span className={selectedService ? "is-ready" : ""}>Servicio</span>
-            <span className={selectedProfessional ? "is-ready" : ""}>Profesional</span>
-            <span className={selectedSlot ? "is-ready" : ""}>Horario</span>
-            <span>Confirmacion</span>
-          </div>
 
           <button
             className="client-primary-action"
@@ -765,18 +1029,10 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
             <span>Confirmacion</span>
             <h2 id="client-confirm-title">Revisa tu solicitud</h2>
-            <p className="client-confirmation-hint">
-              <Info aria-hidden="true" size={16} />
-              La solicitud debe ser confirmada por el negocio antes de que el turno quede reservado.
-            </p>
 
             <dl>
-                <div>
-                  <dt>Categoría</dt>
-                  <dd>{selectedService.categoryName ?? "General"}</dd>
-                </div>
-                <div>
-                  <dt>Servicio</dt>
+              <div>
+                <dt>Servicio</dt>
                 <dd>{selectedService.name}</dd>
               </div>
               <div>
@@ -830,10 +1086,11 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
               <span>Notas adicionales (opcional)</span>
               <textarea
                 maxLength={500}
-                rows={4}
+                rows={1}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 placeholder="Contanos si queres agregar alguna aclaracion."
+                style={{ resize: "none" }}
               />
               <small>{notes.length}/500 caracteres</small>
             </label>
@@ -862,6 +1119,84 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
           </section>
         </div>
       ) : null}
+
+      {/* Calendar modal — shared between desktop and mobile */}
+      {isCalendarOpen ? (
+        <CalendarModal
+          month={calendarMonth}
+          selectedDateKey={selectedDateKey}
+          todayKey={toDateKey(new Date())}
+          maxDateKey={toDateKey(addDays(new Date(), 56))}
+          onNavigateMonth={(delta) =>
+            setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))
+          }
+          onSelect={handleCalendarSelect}
+          onClose={() => setIsCalendarOpen(false)}
+        />
+      ) : null}
+
+      {/* Sticky bottom bar with accordion summary (visible on mobile only) */}
+      {selectedService && (
+        <div className={`client-mobile-bar ${isMobileSummaryOpen ? "is-open" : ""}`}>
+          <div
+            className="mobile-bar-header"
+            onClick={() => setIsMobileSummaryOpen(!isMobileSummaryOpen)}
+          >
+            <div className="mobile-bar-info">
+              <strong>Tu solicitud</strong>
+              <span>
+                {selectedSlot
+                  ? "Listo para reservar"
+                  : selectedProfessional
+                  ? "Elegí fecha y horario"
+                  : "Elegí profesional"}
+              </span>
+            </div>
+            <button type="button" className="mobile-bar-toggle" aria-label="Expandir resumen">
+              <ChevronRight size={18} className="toggle-chevron" />
+            </button>
+          </div>
+
+          <div className="mobile-bar-content">
+            <div className="cpanel-summary" style={{ background: "transparent", border: "none" }}>
+              <div className="cpanel-summary-row" style={{ padding: "8px 0" }}>
+                <span>Servicio</span>
+                <strong>{selectedService.name}</strong>
+              </div>
+              {selectedProfessional && (
+                <div className="cpanel-summary-row" style={{ padding: "8px 0" }}>
+                  <span>Profesional</span>
+                  <strong>{selectedProfessional.fullName}</strong>
+                </div>
+              )}
+              {selectedSlot && (
+                <div className="cpanel-summary-row" style={{ padding: "8px 0" }}>
+                  <span>Turno</span>
+                  <strong style={{ textTransform: "capitalize" }}>
+                    {new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" })
+                      .format(new Date(selectedSlot.startDateTime))}
+                    {" · "}
+                    {formatTime(selectedSlot.startDateTime)}
+                  </strong>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mobile-bar-action">
+            <button
+              className="client-primary-action"
+              style={{ width: "100%" }}
+              type="button"
+              disabled={!selectedService || !selectedProfessional || !selectedSlot}
+              onClick={() => setIsConfirmOpen(true)}
+            >
+              Revisar solicitud
+              <ArrowRight aria-hidden="true" size={18} />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -885,8 +1220,8 @@ function ServiceOption({
         flexDirection: "column",
         justifyContent: "space-between",
         alignItems: "stretch",
-        minHeight: "180px",
-        padding: "16px",
+        minHeight: "85px",
+        padding: "10px 12px",
         textAlign: "left",
         border: "1px solid rgba(143, 73, 99, 0.14)",
         borderRadius: "12px",
@@ -896,47 +1231,47 @@ function ServiceOption({
         transition: "all 0.2s ease"
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", flexGrow: 1 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
-          <strong style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-strong)" }}>
-            {service.name}
-          </strong>
-          <span style={{
-            fontSize: "16px",
-            fontWeight: 700,
-            color: "var(--primary)",
-            whiteSpace: "nowrap"
+      <div style={{ display: "flex", flexDirection: "column", gap: "4px", flexGrow: 1 }}>
+        <strong style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-strong)" }}>
+          {service.name}
+        </strong>
+        {service.description ? (
+          <p style={{
+            margin: 0,
+            fontSize: "12.5px",
+            color: "var(--muted)",
+            lineHeight: "1.35",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden"
           }}>
-            ${service.price}
-          </span>
-        </div>
-        <p style={{
-          margin: 0,
-          fontSize: "13px",
-          color: "var(--muted)",
-          lineHeight: "1.4",
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden"
-        }}>
-          {service.description || "Sin descripción disponible."}
-        </p>
+            {service.description}
+          </p>
+        ) : null}
       </div>
       <div style={{
         display: "flex",
         alignItems: "center",
         gap: "6px",
-        marginTop: "12px",
-        fontSize: "12px",
-        fontWeight: 600,
+        marginTop: "6px",
+        fontSize: "11.5px",
+        fontWeight: 650,
         color: "var(--primary-strong)"
       }}>
-        <Clock aria-hidden="true" size={14} />
+        <Clock aria-hidden="true" size={13} />
         <span>{service.durationMinutes} minutos</span>
       </div>
     </button>
   );
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
 }
 
 function ProfessionalOption({
@@ -948,6 +1283,7 @@ function ProfessionalOption({
   professional: Professional;
   selected: boolean;
 }) {
+  const initials = getInitials(professional.fullName);
   return (
     <button
       className={`client-professional-option ${selected ? "is-selected" : ""}`}
@@ -955,7 +1291,7 @@ function ProfessionalOption({
       onClick={onSelect}
     >
       <span>
-        <UserRoundCheck aria-hidden="true" size={18} />
+        {initials}
       </span>
       <strong>{professional.fullName}</strong>
       <small>{professional.email}</small>
@@ -963,45 +1299,135 @@ function ProfessionalOption({
   );
 }
 
-function DayAvailability({
-  day,
-  onSelectSlot,
-  selectedSlot,
-  slots,
-}: {
-  day: DayModel;
-  onSelectSlot: (slot: AvailabilitySlot) => void;
-  selectedSlot: AvailabilitySlot | null;
-  slots: AvailabilitySlot[];
-}) {
+type CalendarModalProps = {
+  month: Date;
+  selectedDateKey: string | null;
+  todayKey: string;
+  maxDateKey: string;
+  onNavigateMonth: (delta: number) => void;
+  onSelect: (dateKey: string) => void;
+  onClose: () => void;
+};
+
+function CalendarModal({ month, selectedDateKey, todayKey, maxDateKey, onNavigateMonth, onSelect, onClose }: CalendarModalProps) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+
+  const monthLabel = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" }).format(month);
+
+  // Number of days in this month
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  // Day of week for the 1st (0=Sun, 1=Mon... adjust to Mon-first)
+  const firstDow = new Date(year, monthIndex, 1).getDay();
+  const fillersBefore = (firstDow + 6) % 7; // shift so Mon=0
+
+  const weekdayNames = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"];
+
+  // Disable "next month" if the first day of next month is already beyond maxDateKey
+  const nextMonthFirstKey = (() => {
+    const pad = (v: number) => String(v).padStart(2, "0");
+    const nm = new Date(year, monthIndex + 1, 1);
+    return `${nm.getFullYear()}-${pad(nm.getMonth() + 1)}-01`;
+  })();
+  const isNextMonthDisabled = nextMonthFirstKey > maxDateKey;
+
+  // Disable "prev month" if it would go before today's month
+  const prevMonthLastKey = (() => {
+    const pad = (v: number) => String(v).padStart(2, "0");
+    const pm = new Date(year, monthIndex, 0); // last day of prev month
+    return `${pm.getFullYear()}-${pad(pm.getMonth() + 1)}-${pad(pm.getDate())}`;
+  })();
+  const isPrevMonthDisabled = prevMonthLastKey < todayKey;
+
+  function buildKey(day: number) {
+    const pad = (v: number) => String(v).padStart(2, "0");
+    return `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
+  }
+
   return (
-    <section className="client-day-card">
-      <div className="client-day-heading">
-        <span>{day.shortLabel}</span>
-        <strong>{day.label}</strong>
-      </div>
-
-      {slots.length === 0 ? (
-        <p className="client-day-empty">Sin horarios.</p>
-      ) : (
-        <div className="client-slot-list">
-          {slots.map((slot) => {
-            const selected = selectedSlot?.startDateTime === slot.startDateTime;
-
-            return (
-              <button
-                className={`client-slot-button ${selected ? "is-selected" : ""}`}
-                key={slot.startDateTime}
-                type="button"
-                onClick={() => onSelectSlot(slot)}
-              >
-                <strong>{formatTime(slot.startDateTime)}</strong>
-                <span>{formatTime(slot.endDateTime)}</span>
-              </button>
-            );
-          })}
+    <div
+      className="client-cal-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="client-cal-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Seleccioná una fecha"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="client-cal-header">
+          <div className="client-cal-nav">
+            <button
+              type="button"
+              className="client-cal-nav-btn"
+              aria-label="Mes anterior"
+              disabled={isPrevMonthDisabled}
+              onClick={() => onNavigateMonth(-1)}
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <button
+              type="button"
+              className="client-cal-nav-btn"
+              aria-label="Mes siguiente"
+              disabled={isNextMonthDisabled}
+              onClick={() => onNavigateMonth(1)}
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+          <h3>{monthLabel}</h3>
+          <button
+            type="button"
+            className="client-cal-close"
+            aria-label="Cerrar calendario"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
         </div>
-      )}
-    </section>
+
+        <div className="client-cal-grid-wrap">
+          {/* Weekday headers */}
+          <div className="client-cal-weekdays">
+            {weekdayNames.map((wd) => (
+              <span key={wd} className="client-cal-weekday">{wd}</span>
+            ))}
+          </div>
+
+          {/* Day cells */}
+          <div className="client-cal-days">
+            {Array.from({ length: fillersBefore }, (_, i) => (
+              <span key={`f${i}`} className="client-cal-day is-filler" aria-hidden="true" />
+            ))}
+            {Array.from({ length: daysInMonth }, (_, i) => {
+              const day = i + 1;
+              const key = buildKey(day);
+              const isPast = key < todayKey;
+              const isBeyondMax = key > maxDateKey;
+              const isToday = key === todayKey;
+              const isSelected = key === selectedDateKey;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={[
+                    "client-cal-day",
+                    isToday ? "is-today" : "",
+                    isSelected ? "is-selected" : "",
+                  ].join(" ").trim()}
+                  disabled={isPast || isBeyondMax}
+                  onClick={() => onSelect(key)}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
