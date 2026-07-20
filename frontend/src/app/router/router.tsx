@@ -20,14 +20,16 @@ import { ClientProfilePage } from "../../features/client/pages/ClientProfilePage
 import { LoginPage } from "../../features/auth/pages/LoginPage";
 import { RegisterPage } from "../../features/auth/pages/RegisterPage";
 import { HomePage } from "../../features/public-site/pages/HomePage";
+import { PlatformLandingPage } from "../../features/public-site/pages/PlatformLandingPage";
 import { NotFoundPage } from "../../shared/components/NotFoundPage";
 import { BusinessProviderWrapper } from "./BusinessProviderWrapper";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/n/bibe" replace />,
+    element: <PlatformLandingPage />,
   },
+
   {
     path: "/n/:businessSlug",
     element: <BusinessProviderWrapper />,

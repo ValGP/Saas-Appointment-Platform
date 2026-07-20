@@ -27,23 +27,25 @@ public class TenantFilter extends OncePerRequestFilter {
 
         Business resolvedBusiness = null;
 
-        // 1. Try to resolve business from the X-Business-Slug header (high priority, works for public and auth endpoints)
-        String businessSlug = request.getHeader("X-Business-Slug");
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            resolvedBusiness = businessRepository.findBySlugIgnoreCase(businessSlug.trim()).orElse(null);
-        }
+        // 1. Try to resolve from the authenticated security context first (prevents header bypass on protected endpoints)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof AuthenticatedUser) {
 
-        // 2. If not resolved from header, try to resolve from the authenticated security context
-        if (resolvedBusiness == null) {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof AuthenticatedUser) {
-                AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
-                Long businessId = authenticatedUser.getBusinessId();
-                if (businessId != null) {
-                    resolvedBusiness = businessRepository.findById(businessId).orElse(null);
-                }
+            AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+            Long businessId = authenticatedUser.getBusinessId();
+            if (businessId != null) {
+                resolvedBusiness = businessRepository.findById(businessId).orElse(null);
             }
         }
+
+        // 2. Otherwise (public endpoints, login/register), resolve from the X-Business-Slug header
+        if (resolvedBusiness == null) {
+            String businessSlug = request.getHeader("X-Business-Slug");
+            if (businessSlug != null && !businessSlug.isBlank()) {
+                resolvedBusiness = businessRepository.findBySlugIgnoreCase(businessSlug.trim()).orElse(null);
+            }
+        }
+
 
         // 3. Set the resolved business in TenantContext (if found)
         if (resolvedBusiness != null) {

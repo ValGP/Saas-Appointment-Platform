@@ -27,12 +27,11 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        Business business = getActiveBusiness();
         String email = request.email().toLowerCase();
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailAndBusiness(email, business)) {
             throw new EmailAlreadyRegisteredException(email);
         }
-
-        Business business = getActiveBusiness();
 
         User user = new User(
                 business,
@@ -49,9 +48,19 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email().toLowerCase())
-                .filter(User::isActive)
-                .orElseThrow(InvalidCredentialsException::new);
+        Business business = TenantContext.getCurrentTenant();
+        String email = request.email().toLowerCase();
+
+        User user;
+        if (business != null) {
+            user = userRepository.findByEmailAndBusiness(email, business)
+                    .filter(User::isActive)
+                    .orElseThrow(InvalidCredentialsException::new);
+        } else {
+            user = userRepository.findByEmail(email)
+                    .filter(User::isActive)
+                    .orElseThrow(InvalidCredentialsException::new);
+        }
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
@@ -80,3 +89,5 @@ public class AuthService {
         return business;
     }
 }
+
+

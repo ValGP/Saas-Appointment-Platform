@@ -7,7 +7,7 @@ export function NotFoundPage() {
         <p className="eyebrow">404</p>
         <h1>Pagina no encontrada</h1>
         <p>La ruta que intentaste abrir todavia no existe.</p>
-        <Link className="button" to="/">
+        <Link className="platform-button" to="/">
           Volver al inicio
         </Link>
       </section>

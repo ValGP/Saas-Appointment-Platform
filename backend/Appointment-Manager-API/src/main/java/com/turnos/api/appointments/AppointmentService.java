@@ -98,9 +98,8 @@ public class AppointmentService {
     public AppointmentResponse createPublicAppointment(PublicBookingRequest request) {
         Business business = getActiveBusiness();
 
-        // 1. Resolve or create silent client user
         String email = request.email().trim().toLowerCase();
-        User client = userRepository.findByEmail(email)
+        User client = userRepository.findByEmailAndBusiness(email, business)
                 .orElseGet(() -> {
                     User newClient = new User(
                             business,
@@ -112,7 +111,6 @@ public class AppointmentService {
                     );
                     return userRepository.save(newClient);
                 });
-
         if (client.getRole() != UserRole.CLIENT) {
             throw new ConflictException("User is registered with an admin/professional profile");
         }

@@ -23,9 +23,12 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/public")
 public class PublicBusinessController {
+
 
     private final BusinessRepository businessRepository;
     private final ServiceCatalogService serviceCatalogService;
@@ -60,6 +63,15 @@ public class PublicBusinessController {
                 .orElseThrow(() -> new ResourceNotFoundException("Business", slug));
         return ResponseEntity.ok(PublicBusinessResponse.from(business));
     }
+
+    @GetMapping("/businesses")
+    public List<PublicBusinessResponse> findActiveBusinesses() {
+        return businessRepository.findAll().stream()
+                .filter(Business::isActive)
+                .map(PublicBusinessResponse::from)
+                .collect(Collectors.toList());
+    }
+
 
     @GetMapping("/services")
     public List<ServiceResponse> findServices(

@@ -668,15 +668,14 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
           <div className="client-professional-section">
             <div className="client-section-heading">
               <span>Paso 2</span>
-              <h2>Elegi profesional</h2>
+              <h2>Elegí quién te va a atender</h2>
             </div>
 
             {!selectedService ? (
               <div className="client-empty-state">
-                <strong>Primero selecciona un servicio.</strong>
+                <strong>Primero elegí un servicio.</strong>
                 <p>
-                  Despues vamos a mostrar solo los profesionales que realizan ese
-                  tratamiento.
+                  Después vas a poder elegir quién querés que te atienda.
                 </p>
               </div>
             ) : null}
@@ -740,11 +739,7 @@ export function ClientBookPage({ isPublic = false }: { isPublic?: boolean }) {
 
             {!hasAvailabilitySelection ? (
               <div className="client-empty-state">
-                <strong>Selecciona servicio y profesional para ver fechas.</strong>
-                <p>
-                  La disponibilidad se calcula con la agenda real, por eso aparece
-                  despues de completar los pasos anteriores.
-                </p>
+                <strong>Seleccioná un servicio y quién te va a atender para ver los horarios disponibles.</strong>
               </div>
             ) : null}
 
